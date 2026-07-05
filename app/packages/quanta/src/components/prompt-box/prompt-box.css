@@ -1,0 +1,86 @@
+/**
+ * PromptBox presentation — the generation prompt surface: one bordered panel
+ * (the field chrome) stacking attachments strip, borderless auto-growing
+ * textarea, and the settings/actions toolbar. The panel carries the border +
+ * focus ring (input.css q-field-control precedent); the inner textarea is
+ * chrome-free.
+ */
+
+@source "./prompt-box.tsx";
+
+/* The panel: rounded surface, subtle border, focus-within ring. */
+@utility q-prompt-box {
+  /* Overridable knob: minimum height of the prompt input. No generated
+     component-tier token exists yet, so the default is documented here per
+     COMPONENT_STANDARD §5a (precedent: --q-menu-min-width, --q-slider-width). */
+  --q-prompt-box-min-height: var(--hf-space-1200); /* 48px */
+
+  display: flex;
+  flex-direction: column;
+  gap: var(--hf-space-200); /* 8px */
+  width: 100%;
+  padding: var(--hf-space-300); /* 12px */
+  border: var(--hf-border-width-thin) solid var(--hf-color-border-subtle);
+  border-radius: var(--hf-radius-400); /* 16px */
+  background-color: var(--hf-color-background-secondary);
+
+  &:focus-within {
+    box-shadow: inset 0 0 0 var(--hf-border-width-medium) var(--hf-color-border-focus);
+  }
+}
+
+/* The prompt textarea — transparent; the panel is the chrome. Auto-grows via
+   field-sizing where supported (the component JS-falls-back elsewhere). */
+@utility q-prompt-box-input {
+  width: 100%;
+  min-height: var(--q-prompt-box-min-height);
+  field-sizing: content;
+  appearance: none;
+  background: transparent;
+  border: var(--hf-border-width-none) solid transparent;
+  padding: var(--hf-space-0);
+  outline: none;
+  resize: none;
+  color: var(--hf-color-text-primary);
+  @apply text-q-body-md-regular;
+
+  &::placeholder {
+    color: var(--hf-color-text-on-overlay-secondary); /* white 50% */
+    opacity: 1;
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: var(--hf-opacity-disabled);
+  }
+}
+
+/* Bottom settings row — app-provided chips/selects wrap onto new lines. */
+@utility q-prompt-box-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--hf-space-200); /* 8px */
+}
+
+/* Right-aligned action cluster (cost, counter, submit) inside the toolbar. */
+@utility q-prompt-box-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--hf-space-200); /* 8px */
+  margin-inline-start: auto;
+}
+
+/* Attachment / reference chip strip above the toolbar. */
+@utility q-prompt-box-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--hf-space-200); /* 8px */
+}
+
+/* Prompt length readout. */
+@utility q-prompt-box-counter {
+  color: var(--hf-color-text-tertiary);
+  @apply text-q-caption-sm-regular;
+}
