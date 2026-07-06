@@ -1,17 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
-import { FORECAST_HORIZON_DAYS, fetchWeather } from "../../lib/weather";
+import { FORECAST_HORIZON_DAYS, daysUntil, fetchWeather } from "../../lib/weather";
 
 // מזג אוויר ליום ולמיקום — גנרי לכל טיול/תאריך.
 // מצבים: טוען · זמין (אייקון+טמפרטורות) · רחוק מהטווח (הודעה עם ספירת ימים) · לא זמין זמנית.
 // "רחוק מהטווח" מחושב בצד הלקוח מהתאריך עצמו — אמין יותר מהסתמכות על תגובת השרת.
-
-function daysUntil(dateIso: string): number | null {
-  const target = new Date(`${dateIso}T12:00:00`);
-  if (Number.isNaN(target.getTime())) return null;
-  const now = new Date();
-  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  return Math.round((target.getTime() - startOfToday.getTime()) / 86_400_000);
-}
 
 export function WeatherBadge(props: { lat: number; lng: number; date: string }) {
   const { lat, lng, date } = props;

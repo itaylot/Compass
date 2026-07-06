@@ -26,6 +26,7 @@ import {
   setItemStatus,
   toggleReminder,
 } from "../../lib/api/trip.functions";
+import { ForecastScreen } from "./ForecastScreen";
 import { HelpSheet } from "./HelpSheet";
 import { InfoScreen } from "./InfoScreen";
 import { ItemForm, type ItemDraft } from "./ItemForm";
@@ -34,7 +35,7 @@ import { NextActionCard } from "./NextActionCard";
 import { RemindersSheet } from "./RemindersSheet";
 import { WeatherBadge } from "./WeatherBadge";
 
-type Tab = "today" | "map" | "plan" | "info";
+type Tab = "today" | "forecast" | "map" | "plan" | "info";
 type DaySel = number | "all";
 type Filter = Category | "optional" | "all";
 type TripData = { settings: TripSettings; items: TripItem[]; reminders: Reminder[] };
@@ -347,6 +348,7 @@ export default function TripApp({ initialData }: { initialData?: TripData }) {
             openAdd={() => setFormItem("new")}
           />
         )}
+        {tab === "forecast" && <ForecastScreen settings={settings} items={items} todayNum={todayNum} />}
         {tab === "map" && (
           <MapScreen
             settings={settings}
@@ -462,6 +464,7 @@ export default function TripApp({ initialData }: { initialData?: TripData }) {
           {(
             [
               { id: "today", icon: "🏠", label: "היום" },
+              { id: "forecast", icon: "🌤️", label: "תחזית" },
               { id: "map", icon: "🗺️", label: "מפה" },
               { id: "plan", icon: "📋", label: "תכנון" },
               { id: "info", icon: "ℹ️", label: "מידע" },

@@ -14,6 +14,15 @@ export interface WeatherResult {
 // להסבר "התחזית תופיע עד N ימים מראש".
 export const FORECAST_HORIZON_DAYS = 16;
 
+// כמה ימים מהיום עד תאריך נתון (שלילי = בעבר). לפי תחילת היום המקומי.
+export function daysUntil(dateIso: string): number | null {
+  const target = new Date(`${dateIso}T12:00:00`);
+  if (Number.isNaN(target.getTime())) return null;
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  return Math.round((target.getTime() - startOfToday.getTime()) / 86_400_000);
+}
+
 // קודי מזג אוויר של WMO -> אימוג'י.
 function wmoToIcon(code: number): { icon: string; rain: boolean } {
   if (code === 0) return { icon: "☀️", rain: false };
