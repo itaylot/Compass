@@ -1,9 +1,11 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
-// מזג אוויר מ-yr.no (Meteorologisk institutt) דרך ה-Worker בלבד:
-// ה-API דורש User-Agent מזהה ואוסר קריאה ישירה מהדפדפן, ולכן זה חייב שרת.
-// cache ברמת ה-isolate מצמצם קריאות (ponytail: cache פר-אינסטנס, מתאפס בהחלפת isolate).
+// מזג אוויר מ-Open-Meteo דרך ה-Worker.
+// למה Open-Meteo ולא yr.no: yr.no חוסם לעיתים קריאות מ-Cloudflare Workers
+// (מה שהחזיר "תחזית בקרוב" תמיד). Open-Meteo חינמי, בלי מפתח, בלי דרישת
+// User-Agent, אמין מ-Workers, ונותן עד 16 ימי תחזית (יותר מ-yr.no).
+// cache ברמת ה-isolate מצמצם קריאות (ponytail: cache פר-אינסטנס).
 
 interface WeatherResult {
   available: boolean;
@@ -16,25 +18,28 @@ interface WeatherResult {
 const cache = new Map<string, { at: number; value: WeatherResult }>();
 const TTL_MS = 60 * 60 * 1000; // שעה
 
-function symbolToIcon(code: string): { icon: string; rain: boolean } {
-  const c = code.toLowerCase();
-  if (c.includes("thunder")) return { icon: "⛈️", rain: true };
-  if (c.includes("sleet") || c.includes("snow")) return { icon: "🌨️", rain: true };
-  if (c.includes("rain")) return { icon: "🌧️", rain: true };
-  if (c.includes("fog")) return { icon: "🌫️", rain: false };
-  if (c.includes("cloudy") && !c.includes("partly")) return { icon: "☁️", rain: false };
-  if (c.includes("partlycloudy")) return { icon: "⛅", rain: false };
-  if (c.includes("fair")) return { icon: "🌤️", rain: false };
-  if (c.includes("clearsky")) return { icon: "☀️", rain: false };
+// קודי מזג אוויר של WMO -> אימוג'י.
+function wmoToIcon(code: number): { icon: string; rain: boolean } {
+  if (code === 0) return { icon: "☀️", rain: false };
+  if (code === 1) return { icon: "🌤️", rain: false };
+  if (code === 2) return { icon: "⛅", rain: false };
+  if (code === 3) return { icon: "☁️", rain: false };
+  if (code === 45 || code === 48) return { icon: "🌫️", rain: false };
+  if (code >= 51 && code <= 57) return { icon: "🌦️", rain: true }; // טפטוף
+  if (code >= 61 && code <= 67) return { icon: "🌧️", rain: true }; // גשם
+  if (code >= 71 && code <= 77) return { icon: "🌨️", rain: true }; // שלג
+  if (code >= 80 && code <= 82) return { icon: "🌦️", rain: true }; // ממטרים
+  if (code >= 85 && code <= 86) return { icon: "🌨️", rain: true }; // ממטרי שלג
+  if (code >= 95) return { icon: "⛈️", rain: true }; // סופת רעמים
   return { icon: "🌡️", rain: false };
 }
 
-interface YrTimeseries {
-  time: string;
-  data: {
-    instant?: { details?: { air_temperature?: number } };
-    next_6_hours?: { summary?: { symbol_code?: string } };
-    next_1_hours?: { summary?: { symbol_code?: string } };
+interface OpenMeteoDaily {
+  daily?: {
+    time?: string[];
+    temperature_2m_max?: number[];
+    temperature_2m_min?: number[];
+    weather_code?: number[];
   };
 }
 
@@ -47,7 +52,6 @@ export const getWeather = createServerFn({ method: "POST" })
     }),
   )
   .handler(async ({ data }): Promise<WeatherResult> => {
-    // עיגול קואורדינטות ל-2 ספרות: מצמצם מרחב cache ותואם דרישת yr.no.
     const lat = Math.round(data.lat * 100) / 100;
     const lng = Math.round(data.lng * 100) / 100;
     const cacheKey = `${lat},${lng},${data.date}`;
@@ -56,30 +60,23 @@ export const getWeather = createServerFn({ method: "POST" })
 
     let result: WeatherResult = { available: false };
     try {
-      const res = await fetch(
-        `https://api.met.no/weatherapi/locationforecast/2.0/compact?lat=${lat}&lon=${lng}`,
-        { headers: { "User-Agent": "norway2026-family-trip-app / contact: itayl1998@gmail.com" } },
-      );
+      const url =
+        `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}` +
+        `&daily=temperature_2m_max,temperature_2m_min,weather_code&timezone=Europe%2FOslo` +
+        `&start_date=${data.date}&end_date=${data.date}`;
+      const res = await fetch(url);
       if (res.ok) {
-        const json = (await res.json()) as { properties?: { timeseries?: YrTimeseries[] } };
-        const series = (json.properties?.timeseries ?? []).filter((t) => t.time.startsWith(data.date));
-        if (series.length > 0) {
-          const temps = series
-            .map((t) => t.data.instant?.details?.air_temperature)
-            .filter((n): n is number => typeof n === "number");
-          const hi = temps.length ? Math.round(Math.max(...temps)) : undefined;
-          const lo = temps.length ? Math.round(Math.min(...temps)) : undefined;
-          // סמל ייצוגי: קרוב ל-12:00, אחרת הראשון שיש בו סמל.
-          const midday =
-            series.find((t) => t.time.includes("T12")) ??
-            series.find((t) => t.data.next_6_hours?.summary?.symbol_code) ??
-            series[0];
-          const code =
-            midday.data.next_6_hours?.summary?.symbol_code ??
-            midday.data.next_1_hours?.summary?.symbol_code ??
-            "";
-          const { icon, rain } = symbolToIcon(code);
-          result = { available: true, hi, lo, icon, rain };
+        const json = (await res.json()) as OpenMeteoDaily;
+        const d = json.daily;
+        if (d?.time?.length && typeof d.temperature_2m_max?.[0] === "number") {
+          const { icon, rain } = wmoToIcon(d.weather_code?.[0] ?? -1);
+          result = {
+            available: true,
+            hi: Math.round(d.temperature_2m_max[0]),
+            lo: Math.round(d.temperature_2m_min?.[0] ?? d.temperature_2m_max[0]),
+            icon,
+            rain,
+          };
         }
       }
     } catch {
