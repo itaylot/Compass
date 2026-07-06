@@ -32,7 +32,6 @@ import { ItemForm, type ItemDraft } from "./ItemForm";
 import { MapView } from "./MapView";
 import { NextActionCard } from "./NextActionCard";
 import { RemindersSheet } from "./RemindersSheet";
-import { useAdmin } from "./useAdmin";
 import { WeatherBadge } from "./WeatherBadge";
 
 type Tab = "today" | "map" | "plan" | "info";
@@ -57,9 +56,13 @@ function sortChrono(a: TripItem, b: TripItem): number {
   return a.day - b.day || a.time.localeCompare(b.time);
 }
 
+async function getTripSafe(): Promise<TripData> {
+  const { getTrip } = await import("../../lib/api/trip.functions");
+  return getTrip();
+}
+
 export default function TripApp({ initialData }: { initialData?: TripData }) {
   const queryClient = useQueryClient();
-  const admin = useAdmin();
   const [tab, setTab] = useState<Tab>("today");
   const [day, setDay] = useState<DaySel>(1);
   const [filter, setFilter] = useState<Filter>("all");
@@ -144,7 +147,7 @@ export default function TripApp({ initialData }: { initialData?: TripData }) {
   const invalidate = () => queryClient.invalidateQueries({ queryKey: TRIP_KEY });
 
   const saveMutation = useMutation({
-    mutationFn: (draft: ItemDraft) => saveItem({ data: { key: admin.key, item: draft } }),
+    mutationFn: (draft: ItemDraft) => saveItem({ data: draft }),
     onSuccess: async (_res, draft) => {
       await invalidate();
       setFormItem(null);
@@ -155,7 +158,7 @@ export default function TripApp({ initialData }: { initialData?: TripData }) {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => deleteItem({ data: { key: admin.key, id } }),
+    mutationFn: (id: string) => deleteItem({ data: { id } }),
     onSuccess: async (_res, id) => {
       await invalidate();
       setFormItem(null);
@@ -164,7 +167,7 @@ export default function TripApp({ initialData }: { initialData?: TripData }) {
       showToast("העצירה הוסרה", {
         label: "בטל",
         fn: async () => {
-          await restoreItem({ data: { key: admin.key, id } });
+          await restoreItem({ data: { id } });
           await invalidate();
           showToast("שוחזר ✓");
         },
@@ -173,7 +176,6 @@ export default function TripApp({ initialData }: { initialData?: TripData }) {
     onError: () => showToast("המחיקה נכשלה, נסו שוב"),
   });
 
-  // סימון בוצע — מותר גם בצפייה (setItemStatus בלי מפתח), עם עדכון אופטימי.
   const statusMutation = useMutation({
     mutationFn: (item: TripItem) => {
       const next: Status = item.status === "done" ? "planned" : "done";
@@ -205,7 +207,7 @@ export default function TripApp({ initialData }: { initialData?: TripData }) {
   });
 
   const settingsMutation = useMutation({
-    mutationFn: (s: TripSettings) => saveSettings({ data: { key: admin.key, settings: s } }),
+    mutationFn: (s: TripSettings) => saveSettings({ data: s }),
     onSuccess: async () => {
       await invalidate();
       showToast("הגדרות הטיול נשמרו ✓");
@@ -214,7 +216,7 @@ export default function TripApp({ initialData }: { initialData?: TripData }) {
   });
 
   const lodgingMutation = useMutation({
-    mutationFn: (v: { id: string; group: string }) => chooseLodging({ data: { key: admin.key, ...v } }),
+    mutationFn: (v: { id: string; group: string }) => chooseLodging({ data: v }),
     onSuccess: async () => {
       await invalidate();
       showToast("הלינה נבחרה ✓");
@@ -224,7 +226,7 @@ export default function TripApp({ initialData }: { initialData?: TripData }) {
 
   const reminderSaveMutation = useMutation({
     mutationFn: (v: { day: number; text: string }) =>
-      saveReminder({ data: { key: admin.key, reminder: { day: v.day, text: v.text, done: false } } }),
+      saveReminder({ data: { day: v.day, text: v.text, done: false } }),
     onSuccess: () => invalidate(),
     onError: () => showToast("הוספת התזכורת נכשלה"),
   });
@@ -246,7 +248,7 @@ export default function TripApp({ initialData }: { initialData?: TripData }) {
   });
 
   const reminderDeleteMutation = useMutation({
-    mutationFn: (r: Reminder) => deleteReminder({ data: { key: admin.key, id: r.id } }),
+    mutationFn: (r: Reminder) => deleteReminder({ data: { id: r.id } }),
     onSuccess: () => invalidate(),
   });
 
@@ -266,10 +268,7 @@ export default function TripApp({ initialData }: { initialData?: TripData }) {
     [items, day, filter],
   );
 
-  const dayReminders = useMemo(
-    () => reminders.filter((r) => day !== "all" && r.day === day),
-    [reminders, day],
-  );
+  const dayReminders = useMemo(() => reminders.filter((r) => day !== "all" && r.day === day), [reminders, day]);
   const openReminderCount = dayReminders.filter((r) => !r.done).length;
 
   const selectFromMap = (id: string) => {
@@ -311,7 +310,6 @@ export default function TripApp({ initialData }: { initialData?: TripData }) {
           {settings.subtitle && <p className="truncate text-xs font-medium text-[var(--muted)]">{settings.subtitle}</p>}
         </div>
         <div className="flex items-center gap-2">
-          {admin.isAdmin && <span className="rounded-full bg-[var(--brand)]/10 px-2 py-0.5 text-[10px] font-bold text-[var(--brand)]">ניהול</span>}
           <button
             onClick={() => setHelpOpen(true)}
             aria-label="מדריך שימוש"
@@ -347,8 +345,6 @@ export default function TripApp({ initialData }: { initialData?: TripData }) {
             toggleDone={(i) => statusMutation.mutate(i)}
             openDetail={setDetailId}
             openAdd={() => setFormItem("new")}
-            isAdmin={admin.isAdmin}
-            onNavigateItem={() => {}}
           />
         )}
         {tab === "map" && (
@@ -376,7 +372,6 @@ export default function TripApp({ initialData }: { initialData?: TripData }) {
             openDetail={setDetailId}
             openAdd={() => setFormItem("new")}
             hasAnyItems={items.length > 0}
-            isAdmin={admin.isAdmin}
           />
         )}
         {tab === "info" && (
@@ -385,7 +380,6 @@ export default function TripApp({ initialData }: { initialData?: TripData }) {
             items={items}
             reminders={reminders}
             currentDay={currentDayNum}
-            admin={admin}
             focusOnMap={focusOnMap}
             saveSettings={(s) => settingsMutation.mutate(s)}
             savingSettings={settingsMutation.isPending}
@@ -396,8 +390,8 @@ export default function TripApp({ initialData }: { initialData?: TripData }) {
         )}
       </main>
 
-      {/* כפתור הוספה צף — רק במצב ניהול */}
-      {admin.isAdmin && (tab === "today" || tab === "plan") && items.length > 0 && (
+      {/* כפתור הוספה צף — זמין לכולם */}
+      {(tab === "today" || tab === "plan") && items.length > 0 && (
         <button
           onClick={() => setFormItem("new")}
           aria-label="הוספת עצירה"
@@ -407,13 +401,12 @@ export default function TripApp({ initialData }: { initialData?: TripData }) {
         </button>
       )}
 
-      {helpOpen && <HelpSheet isAdmin={admin.isAdmin} onClose={() => setHelpOpen(false)} />}
+      {helpOpen && <HelpSheet onClose={() => setHelpOpen(false)} />}
 
       {remindersOpen && day !== "all" && (
         <RemindersSheet
           day={day}
           reminders={dayReminders}
-          isAdmin={admin.isAdmin}
           onToggle={(r) => reminderToggleMutation.mutate(r)}
           onAdd={(d, text) => reminderSaveMutation.mutate({ day: d, text })}
           onDelete={(r) => reminderDeleteMutation.mutate(r)}
@@ -425,7 +418,6 @@ export default function TripApp({ initialData }: { initialData?: TripData }) {
         <DetailSheet
           item={detailItem}
           dateLabel={dayDateLabel(settings.startDate, detailItem.day)}
-          isAdmin={admin.isAdmin}
           close={() => setDetailId(null)}
           toggleDone={() => statusMutation.mutate(detailItem)}
           edit={() => setFormItem(detailItem)}
@@ -491,12 +483,6 @@ export default function TripApp({ initialData }: { initialData?: TripData }) {
       </nav>
     </div>
   );
-}
-
-// getTrip נטען כבר ב-SSR loader; לקריאה חוזרת בצד לקוח משתמשים בזה.
-async function getTripSafe(): Promise<TripData> {
-  const { getTrip } = await import("../../lib/api/trip.functions");
-  return getTrip();
 }
 
 /* ─────────── רכיבים משותפים ─────────── */
@@ -569,40 +555,27 @@ function StatusBadge({ status }: { status: Status }) {
   );
 }
 
-function EmptyTrip({ openAdd, isAdmin }: { openAdd: () => void; isAdmin: boolean }) {
+function EmptyTrip({ openAdd }: { openAdd: () => void }) {
   return (
     <div className="mx-4 mt-6 flex flex-col items-center gap-3 rounded-2xl bg-white p-8 text-center shadow-sm">
       <span className="text-5xl">🧳</span>
       <h2 className="text-base font-extrabold">הטיול עוד ריק</h2>
-      {isAdmin ? (
-        <>
-          <p className="text-xs leading-relaxed text-[var(--muted)]">
-            מוסיפים את העצירה הראשונה: מלון, מסעדה, תצפית או כל מקום אחר.
-            <br />
-            כל מה שמוסיפים כאן מופיע מיד אצל כל המשפחה.
-          </p>
-          <button
-            onClick={openAdd}
-            className="mt-1 rounded-full bg-[var(--brand)] px-6 py-3 text-sm font-bold text-white shadow-md"
-          >
-            + הוספת העצירה הראשונה
-          </button>
-        </>
-      ) : (
-        <p className="text-xs leading-relaxed text-[var(--muted)]">
-          המסלול עוד לא מולא. חזרו כשמנהל הטיול יוסיף עצירות.
-        </p>
-      )}
+      <p className="text-xs leading-relaxed text-[var(--muted)]">
+        מוסיפים את העצירה הראשונה: מלון, מסעדה, תצפית או כל מקום אחר.
+        <br />
+        כל מה שמוסיפים כאן מופיע מיד אצל כל המשפחה.
+      </p>
+      <button
+        onClick={openAdd}
+        className="mt-1 rounded-full bg-[var(--brand)] px-6 py-3 text-sm font-bold text-white shadow-md"
+      >
+        + הוספת העצירה הראשונה
+      </button>
     </div>
   );
 }
 
-function ItemActions(props: {
-  item: TripItem;
-  onNav: () => void;
-  toggleDone: () => void;
-  openDetail: () => void;
-}) {
+function ItemActions(props: { item: TripItem; toggleDone: () => void; openDetail: () => void }) {
   const { item, toggleDone, openDetail } = props;
   const park = hasParking(item);
   return (
@@ -658,12 +631,10 @@ function TodayScreen(props: {
   toggleDone: (i: TripItem) => void;
   openDetail: (id: string) => void;
   openAdd: () => void;
-  isAdmin: boolean;
-  onNavigateItem: (i: TripItem) => void;
 }) {
   const {
     settings, day, setDay, items, hasAnyItems, selectedId, todayNum, isViewingCurrentDay,
-    openReminderCount, onOpenReminders, onPinSelect, onCardSelect, toggleDone, openDetail, openAdd, isAdmin, onNavigateItem,
+    openReminderCount, onOpenReminders, onPinSelect, onCardSelect, toggleDone, openDetail, openAdd,
   } = props;
 
   const area = items.find((i) => i.category !== "drive")?.location || items[0]?.location || "";
@@ -675,7 +646,7 @@ function TodayScreen(props: {
   if (!hasAnyItems) {
     return (
       <div className="flex flex-col">
-        <EmptyTrip openAdd={openAdd} isAdmin={isAdmin} />
+        <EmptyTrip openAdd={openAdd} />
       </div>
     );
   }
@@ -705,23 +676,19 @@ function TodayScreen(props: {
             </span>
           )}
           {day !== "all" && (
-            <button
-              onClick={onOpenReminders}
-              className="rounded-full bg-white/20 px-2.5 py-1 font-bold"
-            >
+            <button onClick={onOpenReminders} className="rounded-full bg-white/20 px-2.5 py-1 font-bold">
               📝 {openReminderCount > 0 ? `${openReminderCount} תזכורות` : "תזכורות"}
             </button>
           )}
         </div>
       </section>
 
-      {/* כרטיס פעולה הבאה */}
       {day !== "all" && items.some((i) => i.status !== "done") && (
         <NextActionCard
           items={items}
           isCurrentDay={isViewingCurrentDay}
           nowMinutes={osloNow().minutes}
-          onNavigate={onNavigateItem}
+          onNavigate={() => {}}
           onDetail={openDetail}
         />
       )}
@@ -739,11 +706,9 @@ function TodayScreen(props: {
           <div className="flex flex-col items-center gap-2 py-8 text-center">
             <span className="text-3xl">🌤️</span>
             <p className="text-sm text-[var(--muted)]">{day === "all" ? "אין עצירות מתאימות לסינון." : "היום הזה עוד ריק."}</p>
-            {isAdmin && (
-              <button onClick={openAdd} className="rounded-full bg-[var(--brand)]/10 px-4 py-2 text-xs font-bold text-[var(--brand)]">
-                + הוספת עצירה ליום הזה
-              </button>
-            )}
+            <button onClick={openAdd} className="rounded-full bg-[var(--brand)]/10 px-4 py-2 text-xs font-bold text-[var(--brand)]">
+              + הוספת עצירה ליום הזה
+            </button>
           </div>
         )}
         {items.map((item) => {
@@ -784,12 +749,7 @@ function TodayScreen(props: {
                   {item.location ? ` · ${item.location}` : ""}
                   {hasParking(item) ? " · 🅿️ חניה" : ""}
                 </div>
-                <ItemActions
-                  item={item}
-                  onNav={() => onNavigateItem(item)}
-                  toggleDone={() => toggleDone(item)}
-                  openDetail={() => openDetail(item.id)}
-                />
+                <ItemActions item={item} toggleDone={() => toggleDone(item)} openDetail={() => openDetail(item.id)} />
               </div>
             </article>
           );
@@ -903,9 +863,8 @@ function PlanScreen(props: {
   openDetail: (id: string) => void;
   openAdd: () => void;
   hasAnyItems: boolean;
-  isAdmin: boolean;
 }) {
-  const { settings, day, setDay, filter, setFilter, items, selectedId, openDetail, openAdd, hasAnyItems, isAdmin } = props;
+  const { settings, day, setDay, filter, setFilter, items, selectedId, openDetail, openAdd, hasAnyItems } = props;
   const [statusFilter, setStatusFilter] = useState<Status | "all">("all");
   const [sortBy, setSortBy] = useState<"time" | "category" | "status">("time");
   const todayNum = currentTripDay(settings);
@@ -922,7 +881,7 @@ function PlanScreen(props: {
   if (!hasAnyItems) {
     return (
       <div className="flex flex-col">
-        <EmptyTrip openAdd={openAdd} isAdmin={isAdmin} />
+        <EmptyTrip openAdd={openAdd} />
       </div>
     );
   }
@@ -1017,13 +976,12 @@ function PlanScreen(props: {
 function DetailSheet(props: {
   item: TripItem;
   dateLabel: string;
-  isAdmin: boolean;
   close: () => void;
   toggleDone: () => void;
   edit: () => void;
   focusOnMap: () => void;
 }) {
-  const { item, dateLabel, isAdmin, close, toggleDone, edit, focusOnMap } = props;
+  const { item, dateLabel, close, toggleDone, edit, focusOnMap } = props;
   const cat = CATEGORIES[item.category];
   const park = hasParking(item);
   return (
@@ -1049,9 +1007,7 @@ function DetailSheet(props: {
         {(item.bookingRef || item.phone) && (
           <div className="mt-2 flex flex-wrap gap-2">
             {item.bookingRef && (
-              <span className="rounded-lg bg-[var(--paper)] px-3 py-1.5 text-xs font-bold">
-                אישור: {item.bookingRef}
-              </span>
+              <span className="rounded-lg bg-[var(--paper)] px-3 py-1.5 text-xs font-bold">אישור: {item.bookingRef}</span>
             )}
             {item.phone && (
               <a
@@ -1119,11 +1075,9 @@ function DetailSheet(props: {
             >
               {item.status === "done" ? "בוצע ✓ (לביטול)" : "סמן שבוצע"}
             </button>
-            {isAdmin && (
-              <button onClick={edit} className="flex-1 rounded-full bg-black/5 px-4 py-2.5 text-sm font-bold">
-                עריכה ✏️
-              </button>
-            )}
+            <button onClick={edit} className="flex-1 rounded-full bg-black/5 px-4 py-2.5 text-sm font-bold">
+              עריכה ✏️
+            </button>
             {item.bookingUrl && (
               <a
                 href={item.bookingUrl}

@@ -2,6 +2,8 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
 // ─── סכמות ───
+// קישור אחד לכולם, בלי מצב ניהול: כל מי שיש לו את הקישור יכול לצפות ולערוך.
+// (אפליקציה למשפחה אחת — הקישור עצמו הוא הפרטיות.)
 
 const categoryEnum = z.enum(["hotel", "food", "hike", "view", "charge", "drive", "activity"]);
 const statusEnum = z.enum(["planned", "optional", "done"]);
@@ -21,14 +23,11 @@ const itemInput = z.object({
   notes: z.string().max(1000).default(""),
   bookingUrl: z.string().max(500).default(""),
   tags: z.array(z.string().max(40)).max(20).default([]),
-  // חניה צמודה
   parkingName: z.string().max(200).default(""),
   parkingLat: z.number().min(-90).max(90).default(0),
   parkingLng: z.number().min(-180).max(180).default(0),
-  // הזמנה מובנית
   bookingRef: z.string().max(120).default(""),
   phone: z.string().max(60).default(""),
-  // קבוצת חלופות לינה
   lodgingGroup: z.string().max(80).default(""),
 });
 
@@ -77,22 +76,11 @@ async function getDB(): Promise<D1Like | null> {
   }
 }
 
-const DEV_KEY = "dev";
 const devStore: { settings: TripSettingsDto; items: TripItemDto[]; reminders: ReminderDto[] } = {
   settings: { title: "הטיול שלנו", subtitle: "הטיול המשפחתי שלנו", startDate: "2026-07-12", numDays: 13 },
   items: [],
   reminders: [],
 };
-
-// אימות מפתח ניהול. בענן: משווה למפתח השמור. בפיתוח (אין DB): מאשר תמיד.
-async function assertAdmin(db: D1Like | null, key: string): Promise<void> {
-  if (!db) return; // dev fallback
-  const row = await db.prepare("SELECT edit_key FROM trip_settings WHERE id = 1").first<{ edit_key: string }>();
-  const stored = row?.edit_key ?? "";
-  if (!stored || key !== stored) {
-    throw new Error("unauthorized: מפתח ניהול שגוי");
-  }
-}
 
 type ItemRow = {
   id: string;
@@ -153,19 +141,13 @@ function rowToDto(r: ItemRow): TripItemDto {
 export const getTrip = createServerFn({ method: "POST" }).handler(async () => {
   const db = await getDB();
   if (!db) {
-    return {
-      settings: devStore.settings,
-      items: devStore.items,
-      reminders: devStore.reminders,
-    };
+    return { settings: devStore.settings, items: devStore.items, reminders: devStore.reminders };
   }
 
   const settingsRow = await db
     .prepare("SELECT title, subtitle, start_date, num_days FROM trip_settings WHERE id = 1")
     .first<{ title: string; subtitle: string; start_date: string; num_days: number }>();
-  const items = await db
-    .prepare("SELECT * FROM trip_items WHERE deleted_at = '' ORDER BY day, time")
-    .all<ItemRow>();
+  const items = await db.prepare("SELECT * FROM trip_items WHERE deleted_at = '' ORDER BY day, time").all<ItemRow>();
   const reminders = await db
     .prepare("SELECT id, day, text, done FROM reminders ORDER BY day, sort, created_at")
     .all<{ id: string; day: number; text: string; done: number }>();
@@ -187,26 +169,13 @@ export const getTrip = createServerFn({ method: "POST" }).handler(async () => {
   };
 });
 
-// בדיקת מפתח ניהול (למסך "מצב ניהול"). מחזיר האם המפתח תקף.
-export const checkAdmin = createServerFn({ method: "POST" })
-  .inputValidator(z.object({ key: z.string() }))
-  .handler(async ({ data }) => {
-    const db = await getDB();
-    if (!db) return { ok: data.key.length > 0 || data.key === DEV_KEY };
-    const row = await db.prepare("SELECT edit_key FROM trip_settings WHERE id = 1").first<{ edit_key: string }>();
-    const stored = row?.edit_key ?? "";
-    return { ok: stored.length > 0 && data.key === stored };
-  });
-
-// ─── כתיבת פריטים (דורש מפתח ניהול) ───
+// ─── כתיבה (פתוח לכל מי שיש לו את הקישור) ───
 
 export const saveItem = createServerFn({ method: "POST" })
-  .inputValidator(z.object({ key: z.string(), item: itemInput }))
-  .handler(async ({ data }) => {
-    const { key, item } = data;
+  .inputValidator(itemInput)
+  .handler(async ({ data: item }) => {
     const id = item.id ?? crypto.randomUUID();
     const db = await getDB();
-    await assertAdmin(db, key);
     if (!db) {
       const dto: TripItemDto = { ...item, id };
       const idx = devStore.items.findIndex((i) => i.id === id);
@@ -258,8 +227,7 @@ export const saveItem = createServerFn({ method: "POST" })
     return { id };
   });
 
-// סימון סטטוס בלבד — פעולת שטח יומיומית, מותרת גם במצב צפייה (בלי מפתח ניהול).
-// לא נוגע בשום שדה אחר, רק status. עריכה/מחיקה מלאה עדיין דורשת ניהול.
+// סימון סטטוס בלבד (בוצע/לא) — עדכון קליל שלא נוגע בשאר השדות.
 export const setItemStatus = createServerFn({ method: "POST" })
   .inputValidator(z.object({ id: z.string(), status: statusEnum }))
   .handler(async ({ data }) => {
@@ -277,26 +245,21 @@ export const setItemStatus = createServerFn({ method: "POST" })
 
 // מחיקה רכה: מסמנת deleted_at, ניתן לשחזר
 export const deleteItem = createServerFn({ method: "POST" })
-  .inputValidator(z.object({ key: z.string(), id: z.string() }))
+  .inputValidator(z.object({ id: z.string() }))
   .handler(async ({ data }) => {
     const db = await getDB();
-    await assertAdmin(db, data.key);
     if (!db) {
       devStore.items = devStore.items.filter((i) => i.id !== data.id);
       return { ok: true };
     }
-    await db
-      .prepare("UPDATE trip_items SET deleted_at = datetime('now') WHERE id = ?")
-      .bind(data.id)
-      .run();
+    await db.prepare("UPDATE trip_items SET deleted_at = datetime('now') WHERE id = ?").bind(data.id).run();
     return { ok: true };
   });
 
 export const restoreItem = createServerFn({ method: "POST" })
-  .inputValidator(z.object({ key: z.string(), id: z.string() }))
+  .inputValidator(z.object({ id: z.string() }))
   .handler(async ({ data }) => {
     const db = await getDB();
-    await assertAdmin(db, data.key);
     if (!db) return { ok: true };
     await db.prepare("UPDATE trip_items SET deleted_at = '' WHERE id = ?").bind(data.id).run();
     return { ok: true };
@@ -304,10 +267,9 @@ export const restoreItem = createServerFn({ method: "POST" })
 
 // בחירת חלופת לינה: הופך אחת ל-planned, שאר הקבוצה ל-optional
 export const chooseLodging = createServerFn({ method: "POST" })
-  .inputValidator(z.object({ key: z.string(), id: z.string(), group: z.string() }))
+  .inputValidator(z.object({ id: z.string(), group: z.string() }))
   .handler(async ({ data }) => {
     const db = await getDB();
-    await assertAdmin(db, data.key);
     if (!db) {
       devStore.items = devStore.items.map((i) =>
         i.lodgingGroup && i.lodgingGroup === data.group
@@ -325,12 +287,11 @@ export const chooseLodging = createServerFn({ method: "POST" })
   });
 
 export const saveSettings = createServerFn({ method: "POST" })
-  .inputValidator(z.object({ key: z.string(), settings: settingsInput }))
-  .handler(async ({ data }) => {
+  .inputValidator(settingsInput)
+  .handler(async ({ data: settings }) => {
     const db = await getDB();
-    await assertAdmin(db, data.key);
     if (!db) {
-      devStore.settings = data.settings;
+      devStore.settings = settings;
       return { ok: true };
     }
     await db
@@ -341,22 +302,18 @@ export const saveSettings = createServerFn({ method: "POST" })
            title = excluded.title, subtitle = excluded.subtitle,
            start_date = excluded.start_date, num_days = excluded.num_days`,
       )
-      .bind(data.settings.title, data.settings.subtitle, data.settings.startDate, data.settings.numDays)
+      .bind(settings.title, settings.subtitle, settings.startDate, settings.numDays)
       .run();
     return { ok: true };
   });
 
 // ─── תזכורות יומיות ───
-// סימון "בוצע" בתזכורת אינו דורש מפתח ניהול (זו פעולת שטח יומיומית של המשפחה);
-// הוספה/מחיקה/עריכת טקסט כן דורשות ניהול.
 
 export const saveReminder = createServerFn({ method: "POST" })
-  .inputValidator(z.object({ key: z.string(), reminder: reminderInput }))
-  .handler(async ({ data }) => {
-    const { key, reminder } = data;
+  .inputValidator(reminderInput)
+  .handler(async ({ data: reminder }) => {
     const id = reminder.id ?? crypto.randomUUID();
     const db = await getDB();
-    await assertAdmin(db, key);
     if (!db) {
       const idx = devStore.reminders.findIndex((r) => r.id === id);
       const dto: ReminderDto = { ...reminder, id };
@@ -375,7 +332,6 @@ export const saveReminder = createServerFn({ method: "POST" })
     return { id };
   });
 
-// סימון תזכורת בוצעה/לא — פעולת שטח, ללא מפתח
 export const toggleReminder = createServerFn({ method: "POST" })
   .inputValidator(z.object({ id: z.string(), done: z.boolean() }))
   .handler(async ({ data }) => {
@@ -389,10 +345,9 @@ export const toggleReminder = createServerFn({ method: "POST" })
   });
 
 export const deleteReminder = createServerFn({ method: "POST" })
-  .inputValidator(z.object({ key: z.string(), id: z.string() }))
+  .inputValidator(z.object({ id: z.string() }))
   .handler(async ({ data }) => {
     const db = await getDB();
-    await assertAdmin(db, data.key);
     if (!db) {
       devStore.reminders = devStore.reminders.filter((r) => r.id !== data.id);
       return { ok: true };

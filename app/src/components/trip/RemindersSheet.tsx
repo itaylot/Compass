@@ -1,19 +1,17 @@
 import { useState } from "react";
 import type { Reminder } from "../../data/trip-items";
 
-// תזכורות פר-יום. bottom sheet שנפתח ממסך "היום".
-// סימון "בוצע" זמין לכולם; הוספה/מחיקה רק במצב ניהול.
+// תזכורות פר-יום. bottom sheet שנפתח ממסך "היום". פתוח לכולם.
 
 export function RemindersSheet(props: {
   day: number;
   reminders: Reminder[]; // כבר מסוננות ליום
-  isAdmin: boolean;
   onToggle: (r: Reminder) => void;
   onAdd: (day: number, text: string) => void;
   onDelete: (r: Reminder) => void;
   onClose: () => void;
 }) {
-  const { day, reminders, isAdmin, onToggle, onAdd, onDelete, onClose } = props;
+  const { day, reminders, onToggle, onAdd, onDelete, onClose } = props;
   const [text, setText] = useState("");
 
   const open = reminders.filter((r) => !r.done);
@@ -40,30 +38,26 @@ export function RemindersSheet(props: {
           </button>
         </div>
 
-        {isAdmin && (
-          <div className="mb-3 flex gap-2">
-            <input
-              className="w-full rounded-xl border border-black/10 bg-white px-3 py-2.5 text-sm focus:border-[var(--brand)] focus:outline-none"
-              placeholder="למשל: לקחת מעיל גשם"
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  submit();
-                }
-              }}
-            />
-            <button onClick={submit} className="shrink-0 rounded-xl bg-[var(--brand)] px-4 py-2.5 text-sm font-bold text-white">
-              הוספה
-            </button>
-          </div>
-        )}
+        <div className="mb-3 flex gap-2">
+          <input
+            className="w-full rounded-xl border border-black/10 bg-white px-3 py-2.5 text-sm focus:border-[var(--brand)] focus:outline-none"
+            placeholder="למשל: לקחת מעיל גשם"
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                submit();
+              }
+            }}
+          />
+          <button onClick={submit} className="shrink-0 rounded-xl bg-[var(--brand)] px-4 py-2.5 text-sm font-bold text-white">
+            הוספה
+          </button>
+        </div>
 
         {reminders.length === 0 && (
-          <p className="py-6 text-center text-sm text-[var(--muted)]">
-            {isAdmin ? "אין תזכורות ליום הזה. הוסיפו אחת למעלה." : "אין תזכורות ליום הזה."}
-          </p>
+          <p className="py-6 text-center text-sm text-[var(--muted)]">אין תזכורות ליום הזה. הוסיפו אחת למעלה.</p>
         )}
 
         <ul className="flex flex-col gap-1.5">
@@ -77,15 +71,13 @@ export function RemindersSheet(props: {
                 aria-label={`סמן שבוצע: ${r.text}`}
               />
               <span className="flex-1 text-sm">{r.text}</span>
-              {isAdmin && (
-                <button
-                  onClick={() => onDelete(r)}
-                  aria-label="מחיקה"
-                  className="shrink-0 rounded-lg px-2 py-1 text-sm text-[var(--muted)]"
-                >
-                  🗑️
-                </button>
-              )}
+              <button
+                onClick={() => onDelete(r)}
+                aria-label="מחיקה"
+                className="shrink-0 rounded-lg px-2 py-1 text-sm text-[var(--muted)]"
+              >
+                🗑️
+              </button>
             </li>
           ))}
         </ul>
@@ -104,15 +96,13 @@ export function RemindersSheet(props: {
                     aria-label={`בטל סימון: ${r.text}`}
                   />
                   <span className="flex-1 text-sm text-[var(--muted)] line-through">{r.text}</span>
-                  {isAdmin && (
-                    <button
-                      onClick={() => onDelete(r)}
-                      aria-label="מחיקה"
-                      className="shrink-0 rounded-lg px-2 py-1 text-sm text-[var(--muted)]"
-                    >
-                      🗑️
-                    </button>
-                  )}
+                  <button
+                    onClick={() => onDelete(r)}
+                    aria-label="מחיקה"
+                    className="shrink-0 rounded-lg px-2 py-1 text-sm text-[var(--muted)]"
+                  >
+                    🗑️
+                  </button>
                 </li>
               ))}
             </ul>
