@@ -37,7 +37,7 @@ export function NextActionCard(props: {
     <section className="mx-4 mt-1 rounded-2xl border border-[var(--brand)]/20 bg-white p-4 shadow-md">
       <div className="mb-1 flex items-center gap-2">
         <span className="rounded-full bg-[var(--brand)] px-2 py-0.5 text-[10px] font-extrabold text-white">
-          {isCurrentDay ? "עכשיו" : "מתחילים"}
+          {isCurrentDay ? "עכשיו" : "היעד הבא"}
         </span>
         <span className="text-xs font-bold text-[var(--muted)]">{item.time}</span>
         {item.tags.includes("קריטי בזמן") && (
@@ -46,7 +46,10 @@ export function NextActionCard(props: {
       </div>
 
       <div className="flex items-start gap-3">
-        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-2xl" style={{ backgroundColor: `${cat.color}22` }}>
+        <span
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-2xl"
+          style={{ backgroundColor: `${cat.color}22`, border: `2px solid ${cat.color}` }}
+        >
           {cat.icon}
         </span>
         <div className="min-w-0 flex-1">

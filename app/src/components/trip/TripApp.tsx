@@ -701,7 +701,7 @@ function TodayScreen(props: {
         </div>
       )}
 
-      <div className="flex flex-col gap-3 px-4 py-4">
+      <div className="flex flex-col gap-2 px-4 py-4">
         {items.length === 0 && (
           <div className="flex flex-col items-center gap-2 py-8 text-center">
             <span className="text-3xl">🌤️</span>
@@ -711,9 +711,12 @@ function TodayScreen(props: {
             </button>
           </div>
         )}
-        {items.map((item) => {
+        {items.map((item, idx) => {
           const cat = CATEGORIES[item.category];
           const sel = item.id === selectedId;
+          const isFirst = idx === 0;
+          const isLast = idx === items.length - 1;
+          const showEnds = day !== "all";
           return (
             <article
               key={item.id}
@@ -729,12 +732,24 @@ function TodayScreen(props: {
                 <time className="text-xs font-bold text-[var(--muted)]">{item.time}</time>
                 <span
                   className="flex h-9 w-9 items-center justify-center rounded-full text-lg"
-                  style={{ backgroundColor: `${cat.color}22` }}
+                  style={{ backgroundColor: `${cat.color}22`, border: `2px solid ${cat.color}` }}
                 >
                   {cat.icon}
                 </span>
+                {/* שביל מקווקו ליעד הבא — תחושת מפת אוצר */}
+                {!isLast && <span aria-hidden className="mt-1 w-0 flex-1 border-l-2 border-dashed border-black/15" />}
               </div>
               <div className="min-w-0 flex-1">
+                {showEnds && isFirst && (
+                  <span className="mb-1 inline-block rounded-full bg-[var(--brand)] px-2 py-0.5 text-[9px] font-extrabold text-white">
+                    🚩 יציאה
+                  </span>
+                )}
+                {showEnds && isLast && !isFirst && (
+                  <span className="mb-1 inline-block rounded-full bg-[var(--ink)] px-2 py-0.5 text-[9px] font-extrabold text-white">
+                    🏁 סוף היום
+                  </span>
+                )}
                 <div className="flex items-start justify-between gap-2">
                   <h3 className={`text-sm font-bold leading-snug ${item.status === "done" ? "line-through" : ""}`}>
                     {item.name}
