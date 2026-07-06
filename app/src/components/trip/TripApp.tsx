@@ -739,8 +739,19 @@ function TodayScreen(props: {
                 >
                   {cat.icon}
                 </span>
-                {/* שביל מקווקו ליעד הבא — תחושת מפת אוצר */}
-                {!isLast && <span aria-hidden className="mt-1 w-0 flex-1 border-l-2 border-dashed border-black/15" />}
+                {/* שביל מקווקו מתפתל (סללום) ליעד הבא — תחושת מפת אוצר */}
+                {!isLast && (
+                  <svg aria-hidden viewBox="0 0 24 120" preserveAspectRatio="none" className="mt-1 w-6 flex-1">
+                    <path
+                      d="M12,0 Q22,12 12,24 Q2,36 12,48 Q22,60 12,72 Q2,84 12,96 Q22,108 12,120"
+                      fill="none"
+                      stroke="rgba(36,49,58,0.28)"
+                      strokeWidth="2"
+                      strokeDasharray="2 5"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                )}
               </div>
               <div className="min-w-0 flex-1">
                 {showEnds && isFirst && (
