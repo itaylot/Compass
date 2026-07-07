@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import {
   CATEGORIES,
   STATUS_META,
@@ -721,8 +721,8 @@ function TodayScreen(props: {
           const isLast = idx === items.length - 1;
           const showEnds = day !== "all";
           return (
+            <Fragment key={item.id}>
             <article
-              key={item.id}
               id={`card-${item.id}`}
               onClick={() => onCardSelect(item.id)}
               className={`flex gap-3 rounded-2xl bg-white p-3 shadow-sm transition-all ${
@@ -739,19 +739,6 @@ function TodayScreen(props: {
                 >
                   {cat.icon}
                 </span>
-                {/* שביל מקווקו מתפתל (סללום) ליעד הבא — תחושת מפת אוצר */}
-                {!isLast && (
-                  <svg aria-hidden viewBox="0 0 24 120" preserveAspectRatio="none" className="mt-1 w-6 flex-1">
-                    <path
-                      d="M12,0 Q22,12 12,24 Q2,36 12,48 Q22,60 12,72 Q2,84 12,96 Q22,108 12,120"
-                      fill="none"
-                      stroke="rgba(36,49,58,0.28)"
-                      strokeWidth="2"
-                      strokeDasharray="2 5"
-                      strokeLinecap="round"
-                    />
-                  </svg>
-                )}
               </div>
               <div className="min-w-0 flex-1">
                 {showEnds && isFirst && (
@@ -781,6 +768,24 @@ function TodayScreen(props: {
                 <ItemActions item={item} toggleDone={() => toggleDone(item)} openDetail={() => openDetail(item.id)} />
               </div>
             </article>
+            {/* שביל מקווקו מתפתל (סללום) בין העצירות — לא בתוך המשבצת, כדי לא לנפח אותה */}
+            {!isLast && (
+              <div aria-hidden className="flex justify-end pr-3">
+                <div className="flex w-12 justify-center">
+                  <svg viewBox="0 0 24 40" preserveAspectRatio="none" className="h-7 w-6">
+                    <path
+                      d="M12,0 Q22,10 12,20 Q2,30 12,40"
+                      fill="none"
+                      stroke="rgba(36,49,58,0.28)"
+                      strokeWidth="2"
+                      strokeDasharray="2 5"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                </div>
+              </div>
+            )}
+            </Fragment>
           );
         })}
       </div>
