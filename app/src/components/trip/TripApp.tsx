@@ -28,6 +28,7 @@ import {
 } from "../../lib/api/trip.functions";
 import { ForecastScreen } from "./ForecastScreen";
 import { HelpSheet } from "./HelpSheet";
+import { PlanningLabScreen } from "./PlanningLabScreen";
 import { InfoScreen } from "./InfoScreen";
 import { ItemForm, type ItemDraft } from "./ItemForm";
 import { MapView } from "./MapView";
@@ -35,7 +36,7 @@ import { NextActionCard } from "./NextActionCard";
 import { RemindersSheet } from "./RemindersSheet";
 import { WeatherBadge } from "./WeatherBadge";
 
-type Tab = "today" | "forecast" | "map" | "plan" | "info";
+type Tab = "today" | "forecast" | "map" | "plan" | "lab" | "info";
 type DaySel = number | "all";
 type Filter = Category | "optional" | "all";
 type TripData = { settings: TripSettings; items: TripItem[]; reminders: Reminder[] };
@@ -304,7 +305,11 @@ export default function TripApp({ initialData }: { initialData?: TripData }) {
   }
 
   return (
-    <div className="trip-app mx-auto flex min-h-dvh w-full max-w-md flex-col bg-[var(--paper)] text-[var(--ink)]">
+    <div
+      className={`trip-app mx-auto flex min-h-dvh w-full flex-col bg-[var(--paper)] text-[var(--ink)] ${
+        tab === "lab" ? "max-w-3xl" : "max-w-md"
+      }`}
+    >
       <header className="flex items-center justify-between px-4 pb-2 pt-4">
         <div className="min-w-0">
           <h1 className="truncate text-xl font-extrabold leading-tight text-[var(--brand)]">{settings.title}</h1>
@@ -349,6 +354,16 @@ export default function TripApp({ initialData }: { initialData?: TripData }) {
           />
         )}
         {tab === "forecast" && <ForecastScreen settings={settings} items={items} todayNum={todayNum} />}
+        {tab === "lab" && (
+          <PlanningLabScreen
+            settings={settings}
+            items={items}
+            todayNum={todayNum}
+            addItem={(draft) => saveMutation.mutate(draft)}
+            removeItem={(id) => deleteMutation.mutate(id)}
+            showToast={(m) => showToast(m)}
+          />
+        )}
         {tab === "map" && (
           <MapScreen
             settings={settings}
@@ -460,20 +475,25 @@ export default function TripApp({ initialData }: { initialData?: TripData }) {
       )}
 
       <nav className="fixed inset-x-0 bottom-0 z-[1100] border-t border-black/5 bg-white/95 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-md items-stretch justify-around pb-[max(env(safe-area-inset-bottom),6px)] pt-1.5">
+        <div
+          className={`mx-auto flex w-full items-stretch justify-around pb-[max(env(safe-area-inset-bottom),6px)] pt-1.5 ${
+            tab === "lab" ? "max-w-3xl" : "max-w-md"
+          }`}
+        >
           {(
             [
               { id: "today", icon: "🏠", label: "היום" },
               { id: "forecast", icon: "🌤️", label: "תחזית" },
               { id: "map", icon: "🗺️", label: "מפה" },
               { id: "plan", icon: "📋", label: "תכנון" },
+              { id: "lab", icon: "🧭", label: "מעבדה" },
               { id: "info", icon: "ℹ️", label: "מידע" },
             ] as { id: Tab; icon: string; label: string }[]
           ).map((t) => (
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
-              className={`flex min-w-16 flex-col items-center gap-0.5 rounded-xl px-3 py-1 text-[11px] font-semibold transition-colors ${
+              className={`flex min-w-[52px] flex-col items-center gap-0.5 rounded-xl px-2 py-1 text-[11px] font-semibold transition-colors ${
                 tab === t.id ? "tab-active text-[var(--brand)]" : "text-[var(--muted)]"
               }`}
               aria-current={tab === t.id ? "page" : undefined}
