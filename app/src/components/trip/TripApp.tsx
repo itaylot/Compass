@@ -770,19 +770,17 @@ function TodayScreen(props: {
             </article>
             {/* שביל מקווקו מתפתל (סללום) בין העצירות — לא בתוך המשבצת, כדי לא לנפח אותה */}
             {!isLast && (
-              <div aria-hidden className="flex justify-end pr-3">
-                <div className="flex w-12 justify-center">
-                  <svg viewBox="0 0 24 40" preserveAspectRatio="none" className="h-7 w-6">
-                    <path
-                      d="M12,0 Q22,10 12,20 Q2,30 12,40"
-                      fill="none"
-                      stroke="rgba(36,49,58,0.28)"
-                      strokeWidth="2"
-                      strokeDasharray="2 5"
-                      strokeLinecap="round"
-                    />
-                  </svg>
-                </div>
+              <div aria-hidden className="flex justify-center">
+                <svg viewBox="0 0 24 40" preserveAspectRatio="none" className="h-7 w-6">
+                  <path
+                    d="M12,0 Q22,10 12,20 Q2,30 12,40"
+                    fill="none"
+                    stroke="rgba(36,49,58,0.28)"
+                    strokeWidth="2"
+                    strokeDasharray="2 5"
+                    strokeLinecap="round"
+                  />
+                </svg>
               </div>
             )}
             </Fragment>
