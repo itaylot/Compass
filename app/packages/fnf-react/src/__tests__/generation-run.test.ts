@@ -1,11 +1,11 @@
 import type { Generation } from '@higgsfield/fnf/client'
 import type { FnfObservationEvent } from '@higgsfield/fnf/observability'
-import { createMemoryBackend } from '@higgsfield/fnf/adapters'
 import { createJobClient } from '@higgsfield/fnf/client'
 import { ApiJobError } from '@higgsfield/fnf/errors'
 import { defineJob, z } from '@higgsfield/fnf/jobs'
 import { describe, expect, it } from 'vitest'
 import { GenerationRun } from '../generation-run'
+import { createMemoryBackend } from './test-utils'
 
 const demo = defineJob({
   jobSetType: 'demo',

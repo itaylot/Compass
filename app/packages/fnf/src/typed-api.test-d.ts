@@ -1,24 +1,20 @@
-import type { FnfAdapter, FnfObservabilityOptions, FnfObservationEvent, FnfObservationPhase, FnfObserver, WorkflowPlatformAdapterOptions } from './index'
+import type { FnfObservabilityOptions, FnfObservationEvent, FnfObservationPhase, FnfObserver, GenerationBackend, ProfileBackend } from './index'
 /* Type-level checks for the model/settings autocomplete on submit.
- * Checked by `tsc` (included in src/**), not run by vitest (not a *.test.ts). */
+ * Checked by `tsc` (included in src/**), not run by vitest (not a *.test.ts).
+ * Backends are declared, not constructed — the concrete adapters live in
+ * @higgsfield/fnf-adapters (typed there); only the ports matter here. */
 import {
-  APPS_MARKETPLACE_SECRET_ENV,
   bytedanceVideoUpscale,
-  createAppsMarketplaceAdapter,
   createJobClient,
-  createMemoryBackend,
-  createMemoryProfileAdapter,
   createNoopObserver,
   createObservabilityContext,
   createProfileClient,
-  createWorkflowPlatformAdapter,
   defineJob,
   gptImage2,
   grokImagine,
   grokImagineV15,
   happyHorse,
   higgsfieldVideoUpscale,
-  imagegen2_0,
   kling3_0,
   kling3MotionControl,
   nanoBanana2,
@@ -40,46 +36,27 @@ import {
   z,
 } from './index'
 
+declare const backend: GenerationBackend
+declare const profileBackend: ProfileBackend
+
 const client = createJobClient({
-  adapter: createMemoryBackend(),
+  adapter: backend,
   jobs: [nanoBanana2, seedance2_0], // ← the source of autocomplete
 })
 
 const imageClient = createJobClient({
-  adapter: createMemoryBackend(),
-  jobs: [soulV2Image, soulCinemaImage, gptImage2, imagegen2_0, seedreamV4_5, nanoBanana2, nanoBananaFlash, nanoBanana2Upscale, recraftV41Image, topazImageUpscale, topazImageGenerativeUpscale],
+  adapter: backend,
+  jobs: [soulV2Image, soulCinemaImage, gptImage2, seedreamV4_5, nanoBanana2, nanoBananaFlash, nanoBanana2Upscale, recraftV41Image, topazImageUpscale, topazImageGenerativeUpscale],
 })
 
 const videoClient = createJobClient({
-  adapter: createMemoryBackend(),
+  adapter: backend,
   jobs: [seedance2_0, kling3_0, kling3MotionControl, happyHorse, grokImagine, grokImagineV15, veo3_1Lite, wan27, topazVideoUpscale, higgsfieldVideoUpscale, soraEnhanceVideo, bytedanceVideoUpscale],
 })
 
 const profileClient = createProfileClient({
-  profileAdapter: createMemoryProfileAdapter(),
+  profileAdapter: profileBackend,
 })
-
-const marketplaceAdapter = createAppsMarketplaceAdapter({ secret: 'secret', userId: 'user-1' })
-expectType<Promise<unknown>>(marketplaceAdapter.getUser())
-expectType<'FNF_APPS_MARKETPLACE_SECRET'>(APPS_MARKETPLACE_SECRET_ENV)
-
-const workflowPlatformAdapter = createWorkflowPlatformAdapter({
-  baseUrl: 'https://wfp.example',
-  getToken: async () => 'token',
-  userId: async () => 'user-1',
-  workspaceId: async () => 'workspace-1',
-  appId: async () => 'app-1',
-})
-expectType<FnfAdapter>(workflowPlatformAdapter)
-expectType<Promise<unknown>>(workflowPlatformAdapter.getUser())
-
-const workflowPlatformOptions: WorkflowPlatformAdapterOptions = {
-  baseUrl: 'https://wfp.example',
-  userId: () => 'user-1',
-  workspaceId: async () => null,
-  appId: async () => 'app-1',
-}
-void workflowPlatformOptions
 
 const observer: FnfObserver = (event) => {
   expectType<FnfObservationEvent>(event)
@@ -137,7 +114,6 @@ void client.submit({ model: 'seedance_2_0', settings: { duration: 8, aspectRatio
 void imageClient.submit({ model: 'text2image_soul_v2', settings: { aspectRatio: '3:4', quality: '1080p' } })
 void imageClient.submit({ model: 'soul_cinematic', settings: { cinematicVariant: 'sultan', batchSize: 2 } })
 void imageClient.submit({ model: 'gpt_image_2', prompt: { instruction: 'x' }, settings: { aspectRatio: 'auto', quality: 'high', resolution: '2k', subModel: 'videotape-alpha' } })
-void imageClient.submit({ model: 'imagegen_2_0', prompt: { instruction: 'x' }, settings: { aspectRatio: '16:9' } })
 void imageClient.submit({ model: 'seedream_v4_5', prompt: { instruction: 'x' }, settings: { aspectRatio: '3:4', quality: 'basic' } })
 void imageClient.submit({ model: 'nano_banana_flash', prompt: { instruction: 'x' }, media: { image: { id: 'u', type: 'media_input' } }, settings: { resolution: '2k' } })
 void imageClient.submit({ model: 'nano_banana_2_upscale', media: { image: { id: 'u', type: 'media_input' } }, settings: { resolution: '4k', aspectRatio: '16:9' } })
@@ -154,7 +130,7 @@ void videoClient.submit({ model: 'grok_video_v15', prompt: { instruction: 'x' },
 void videoClient.submit({ model: 'veo3_1_lite', prompt: { instruction: 'x' }, media: { start_image: { id: 's', type: 'media_input' }, end_image: { id: 'e', type: 'media_input' } }, settings: { resolution: '720p', aspectRatio: 'auto', duration: 8, generateAudio: true } })
 void videoClient.submit({ model: 'wan2_7', prompt: { instruction: 'x', negative: 'blur' }, settings: { quality: '1080p', aspectRatio: '4:3', duration: 5 } })
 void videoClient.submit({ model: 'topaz_video', media: { video: { id: 'v', type: 'video_input' } }, settings: { sourceWidth: 1280, sourceHeight: 720, model: 'slp-2.5', enhancementModel: 'iris-3', frameInterpolationFps: 60 } })
-void videoClient.submit({ model: 'video_upscale', media: { video: { id: 'v', type: 'video_input' } }, settings: { sourceWidth: 1280, sourceHeight: 720, scaleFactor: '4k', useUnlim: true } })
+void videoClient.submit({ model: 'video_upscale', media: { video: { id: 'v', type: 'video_input' } }, settings: { sourceWidth: 1280, sourceHeight: 720, scaleFactor: '4k' } })
 void videoClient.submit({ model: 'video_deflicker', media: { video: { id: 'v', type: 'video_input' } }, settings: { sourceWidth: 1280, sourceHeight: 720 } })
 void videoClient.submit({ model: 'bytedance_video_upscale', media: { video: { id: 'v', type: 'video_input' } }, settings: { sourceWidth: 1280, sourceHeight: 720, resolution: '2k', preset: 'aigc', fps: 60 } })
 
@@ -256,7 +232,7 @@ void defineJob({
   // @ts-expect-error 'nope' is not a settings key of this model
   credits: ({ settings }) => settings.nope,
 })
-const textClient = createJobClient({ adapter: createMemoryBackend(), jobs: [textOnly] })
+const textClient = createJobClient({ adapter: backend, jobs: [textOnly] })
 void textClient.submit({ model: 'text_only', settings: { steps: 4 } })
 // @ts-expect-error this job declares no prompt
 void textClient.submit({ model: 'text_only', settings: { steps: 4 }, prompt: { instruction: 'x' } })

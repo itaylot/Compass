@@ -41,7 +41,6 @@ export const nanoBananaFlash = defineJob({
       aspectRatio: z.wire('aspect_ratio', z._default(z.aspectRatio(NANO_BANANA_ASPECT_RATIO_VALUES), '3:4')),
       resolution: z._default(z.enum(['1k', '2k', '4k']), '1k'),
       batchSize: z.wire('batch_size', z._default(z.number(), 1)),
-      useUnlim: z.wire('use_unlim', z._default(z.boolean(), false)),
     },
   },
   credits: ({ settings }) => (settings.batchSize ?? 1) * CREDITS_PER_IMAGE[settings.resolution ?? '1k'],

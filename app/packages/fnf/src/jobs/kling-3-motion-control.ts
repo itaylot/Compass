@@ -42,8 +42,6 @@ export const kling3MotionControl = defineJob({
       seed: z.optional(z.number()),
       isChain: z._default(z.boolean(), false),
       backgroundSource: z.wire('background_source', z.optional(z.string())),
-      useUnlim: z.wire('use_unlim', z._default(z.boolean(), false)),
-      useFreeGens: z.wire('use_free_gens', z.optional(z.boolean())),
     },
   },
   credits: ({ settings, media }) => {

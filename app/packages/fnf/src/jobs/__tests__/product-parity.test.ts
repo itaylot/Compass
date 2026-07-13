@@ -329,9 +329,9 @@ describe('soul product parity', () => {
     expect([wire.width, wire.height]).toEqual([1696, 960])
   })
 
-  it('explicit style/fashion-factory null/null fails locally with a typed issue (dev backend 422 parity)', () => {
+  it('explicit styleId: null fails locally with a typed issue (dev backend 422 parity)', () => {
     expect(issuesOf(() => buildWireParams({ ...minimal, settings: { styleId: null } }, textToImageSoul)))
-      .toContain('either styleId or fashionFactoryId is required')
+      .toContain('styleId is required (or send fashion_factory_id via extra)')
   })
 
   it('an image reference forces enhance_prompt off; a non-default style forces it on', () => {

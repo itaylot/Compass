@@ -3,7 +3,7 @@ import type { ApiJobErrorJSON } from '../errors'
 import type { JobResponse } from '../spec'
 import type { Generation, GenerationInput } from '../types'
 import type { GenerationContext } from './context'
-import { ApiJobError, UnknownSubmitResponseError } from '../errors'
+import { ApiJobError, ConfirmationRejectedError, UnknownSubmitResponseError } from '../errors'
 import { observeAsync } from '../observability'
 import { buildWireParams, parseGeneration } from '../spec'
 import { entryFor } from './context'
@@ -32,12 +32,22 @@ export async function submit(ctx: GenerationContext, input: GenerationInput): Pr
     const params = buildWireParams(input, entry)
     const count = Math.max(1, input.count ?? 1)
 
+    // The host's confirmation gate runs ONCE per submit (not per fan-out job),
+    // after validation/wire-building and before any network call. Its resolved
+    // token rides every create request; a rejection aborts the whole submit
+    // with the typed `confirmation_rejected` error.
+    const confirmationToken = await confirmSubmission(ctx, entry.jobSetType, params)
+
     // `count` is a client-side fan-out: N independent job submissions, orthogonal
     // to the per-model `batch_size` param (already in `params`). Total outputs =
     // count × batch_size. allSettled so one transient failure doesn't discard the
     // jobs that did succeed.
     const settled = await Promise.allSettled(
-      Array.from({ length: count }, () => ctx.adapter.createJobs({ jobSetType: entry.jobSetType, params })),
+      Array.from({ length: count }, () => ctx.adapter.createJobs({
+        jobSetType: entry.jobSetType,
+        params,
+        ...(confirmationToken !== undefined ? { confirmationToken } : {}),
+      })),
     )
     const generations = settled.flatMap(r => (r.status === 'fulfilled' ? generationsFromBody(r.value, entry, input) : []))
     const failed = settled.flatMap(r => (r.status === 'rejected' ? [asError(r.reason)] : []))
@@ -63,6 +73,21 @@ export async function submit(ctx: GenerationContext, input: GenerationInput): Pr
       failed_count: result.failed?.length ?? 0,
     }),
   })
+}
+
+async function confirmSubmission(ctx: GenerationContext, jobSetType: string, params: Record<string, unknown>): Promise<string | undefined> {
+  if (!ctx.adapter.confirm)
+    return undefined
+  let token: string | void
+  try {
+    token = await ctx.adapter.confirm({ jobSetType, params })
+  }
+  catch (err) {
+    // Typed throws (a host may raise its own ApiJobError) pass through; anything
+    // else — a plain throw from a dismissed modal — becomes the stable code.
+    throw err instanceof ApiJobError ? err : new ConfirmationRejectedError(err instanceof Error ? err.message : undefined)
+  }
+  return typeof token === 'string' ? token : undefined
 }
 
 export async function safeSubmit(ctx: GenerationContext, input: GenerationInput): Promise<SafeSubmitResult> {

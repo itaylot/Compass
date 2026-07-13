@@ -124,7 +124,7 @@ export type ResolveJobRef = (id: string) => Promise<MediaRef | undefined>
 
 /** Config for `createMediaClient`. */
 export interface MediaClientConfig {
-  /** The transport-agnostic media adapter. Use `createDevFnfWebAdapter` (or `createMemoryMediaAdapter` in tests), or your own. */
+  /** The transport-agnostic media adapter. Use one from `@higgsfield/fnf-adapters`, or your own. */
   mediaAdapter: MediaBackend
   /** The byte plane for the presigned PUT. Defaults to `createFetchUploader()`. */
   blobUploader?: BinaryUploader

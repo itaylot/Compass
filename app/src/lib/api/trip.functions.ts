@@ -29,6 +29,9 @@ const itemInput = z.object({
   bookingRef: z.string().max(120).default(""),
   phone: z.string().max(60).default(""),
   lodgingGroup: z.string().max(80).default(""),
+  openingHours: z.string().max(200).default(""),
+  cost: z.string().max(120).default(""),
+  info: z.string().max(2000).default(""),
 });
 
 const settingsInput = z.object({
@@ -103,6 +106,9 @@ type ItemRow = {
   booking_ref: string;
   phone: string;
   lodging_group: string;
+  opening_hours: string;
+  cost: string;
+  info: string;
 };
 
 function rowToDto(r: ItemRow): TripItemDto {
@@ -133,6 +139,9 @@ function rowToDto(r: ItemRow): TripItemDto {
     bookingRef: r.booking_ref ?? "",
     phone: r.phone ?? "",
     lodgingGroup: r.lodging_group ?? "",
+    openingHours: r.opening_hours ?? "",
+    cost: r.cost ?? "",
+    info: r.info ?? "",
   };
 }
 
@@ -188,8 +197,8 @@ export const saveItem = createServerFn({ method: "POST" })
         `INSERT INTO trip_items
            (id, day, time, category, name, short_description, location, lat, lng, duration_min,
             status, notes, booking_url, tags, parking_name, parking_lat, parking_lng,
-            booking_ref, phone, lodging_group, deleted_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '', datetime('now'))
+            booking_ref, phone, lodging_group, opening_hours, cost, info, deleted_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '', datetime('now'))
          ON CONFLICT(id) DO UPDATE SET
            day = excluded.day, time = excluded.time, category = excluded.category,
            name = excluded.name, short_description = excluded.short_description,
@@ -199,6 +208,7 @@ export const saveItem = createServerFn({ method: "POST" })
            parking_name = excluded.parking_name, parking_lat = excluded.parking_lat,
            parking_lng = excluded.parking_lng, booking_ref = excluded.booking_ref,
            phone = excluded.phone, lodging_group = excluded.lodging_group,
+           opening_hours = excluded.opening_hours, cost = excluded.cost, info = excluded.info,
            updated_at = datetime('now')`,
       )
       .bind(
@@ -222,6 +232,9 @@ export const saveItem = createServerFn({ method: "POST" })
         item.bookingRef,
         item.phone,
         item.lodgingGroup,
+        item.openingHours,
+        item.cost,
+        item.info,
       )
       .run();
     return { id };

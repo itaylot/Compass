@@ -192,6 +192,9 @@ export function withObservedGenerationBackend(backend: GenerationBackend, observ
     listJobs: query => observeAsync(ctx, 'fnf.backend.generation.list_jobs', listQueryAttributes(query), () => backend.listJobs(query)),
     estimateCost: req => observeAsync(ctx, 'fnf.backend.generation.estimate_cost', { job_set_type: req.jobSetType }, () => backend.estimateCost(req)),
     ...(backend.cancelJob ? { cancelJob: id => observeAsync(ctx, 'fnf.backend.generation.cancel_job', { generation_id: id }, () => backend.cancelJob!(id)) } : {}),
+    // Attributes carry the job type only — never the params or the resolved
+    // confirmation token (privacy rule: tokens don't go into observability).
+    ...(backend.confirm ? { confirm: req => observeAsync(ctx, 'fnf.backend.generation.confirm', { job_set_type: req.jobSetType }, () => backend.confirm!(req)) } : {}),
   }
 }
 

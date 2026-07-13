@@ -273,7 +273,6 @@ function simpleVideoUpscale(jobSetType: 'video_upscale' | 'video_deflicker') {
         outputWidth: z.wire('output_width', z.optional(z.number())),
         outputHeight: z.wire('output_height', z.optional(z.number())),
         scaleFactor: z._default(z.enum(VIDEO_SCALE_FACTORS), VideoScaleFactor.original),
-        useUnlim: z.wire('use_unlim', z._default(z.boolean(), false)),
       },
     },
     credits: () => 2,

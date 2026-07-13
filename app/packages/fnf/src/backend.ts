@@ -12,8 +12,15 @@
  * (the adapter maps its own failures — HTTP status codes via `errorFromResponse`,
  * socket errors, etc. — onto the typed error catalog).
  */
+
+import type { OutputType } from './types'
+
 export interface JobListQuery {
-  type?: 'image' | 'video'
+  // Derive from OutputType (not a duplicated literal) so this port stays in sync
+  // with the public `ListOptions.type` (also OutputType). Hardcoding the union
+  // here drifts the moment OutputType grows (e.g. "audio"), breaking the
+  // ListOptions -> JobListQuery assignment in client/list.ts with TS2322.
+  type?: OutputType
   cursor?: string | number
   size?: number
   /** List only the derived children of this job set (e.g. its upscales). */
@@ -39,9 +46,37 @@ export interface SwitchWorkspaceRequest {
   workspaceId: string
 }
 
+/**
+ * What the host's confirmation gate sees before a generation goes out: the
+ * resolved job type and the final wire params (validation has already passed).
+ */
+export interface ConfirmSubmitRequest {
+  jobSetType: string
+  params: Record<string, unknown>
+}
+
+/**
+ * Host-injected confirmation gate, run by `submit` once per submission AFTER
+ * validation/wire-building and BEFORE any network call. Resolve to proceed —
+ * optionally with an opaque confirmation token, which the adapter forwards on
+ * the create request (`confirmationToken`). Reject (or throw) to abort the
+ * submit; non-`ApiJobError` rejections surface as the typed
+ * `confirmation_rejected` error. A trivial implementation can wrap
+ * `window.confirm`; a modal flow resolves the promise with its token.
+ */
+export type ConfirmSubmit = (req: ConfirmSubmitRequest) => Promise<string | void>
+
+/**
+ * THE combined adapter shape for a full fnf backend — one object that satisfies
+ * all three ports, so it plugs into `createJobClient({ adapter })`,
+ * `createMediaClient({ mediaAdapter })`, and `createProfileClient` alike.
+ * Concrete implementations live in `@higgsfield/fnf-adapters`.
+ */
+export interface FnfAdapter extends GenerationBackend, MediaBackend, ProfileBackend {}
+
 /** The jobs port: create/read/list generations and estimate cost. */
 export interface GenerationBackend {
-  createJobs: (req: { jobSetType: string, params: Record<string, unknown> }) => Promise<unknown>
+  createJobs: (req: { jobSetType: string, params: Record<string, unknown>, confirmationToken?: string }) => Promise<unknown>
   getJob: (id: string) => Promise<unknown>
   /**
    * OPTIONAL — fetch ALL jobs of a job set in one request, normalized to the
@@ -61,6 +96,13 @@ export interface GenerationBackend {
    * `cancel_not_supported`.
    */
   cancelJob?: (id: string) => Promise<unknown>
+  /**
+   * OPTIONAL — the host-injected confirmation gate (see `ConfirmSubmit`).
+   * Adapters don't implement this themselves; they surface the callback the
+   * host passed at construction (`confirm` option). Absent → submits proceed
+   * unconfirmed.
+   */
+  confirm?: ConfirmSubmit
 }
 
 export interface UploadUrlRequest {

@@ -33,31 +33,36 @@ function getSoulV2Dimensions(quality: Quality, aspectRatio: SoulV2AspectRatioVal
   return lookupSize(SIZE_MAP, quality, aspectRatio)
 }
 
+// Public settings carry ONLY user generation input. The product's internal
+// pipeline constants (use_refiner/use_green/lora/chain_enhancer/model_version)
+// are injected in `finalize` below with the exact values the product always
+// sends; surface/billing markers (use_unlim, is_custom, full_name,
+// is_marketing_studio_avatar, use_noise, use_green_aidar) are not part of the
+// SDK surface — deliberate raw wire fields belong in `extra`.
 function soulV2BaseSettings(defaultStyleId: string, defaultAspectRatio: SoulV2AspectRatioValue, customReferenceStrength: number | null) {
   return {
     styleId: z.wire('style_id', z._default(z.string(), defaultStyleId)),
     styleStrength: z.wire('style_strength', z._default(z.number(), 1)),
     customReferenceId: z.wire('custom_reference_id', z.optional(z.string())),
     customReferenceStrength: z.wire('custom_reference_strength', z._default(z.nullable(z.number()), customReferenceStrength)),
-    fashionFactoryId: z.wire('fashion_factory_id', z.optional(z.string())),
     quality: z._default(z.enum(['720p', '1080p']), '1080p'),
     aspectRatio: z.wire('aspect_ratio', z._default(z.aspectRatio(Object.values(SoulV2AspectRatio)), defaultAspectRatio)),
     seed: z._default(z.number(), randomSeed),
     batchSize: z.wire('batch_size', z._default(z.number(), 1)),
-    useUnlim: z.wire('use_unlim', z._default(z.boolean(), false)),
-    useRefiner: z.wire('use_refiner', z._default(z.boolean(), false)),
-    useGreen: z.wire('use_green', z._default(z.boolean(), true)),
-    useGreenAidar: z.wire('use_green_aidar', z.optional(z.boolean())),
-    lora: z._default(z.nullable(z.string()), null),
-    chainEnhancer: z.wire('chain_enhancer', z._default(z.nullable(z.boolean()), null)),
     colorPresetId: z.wire('color_preset_id', z.optional(z.nullable(z.string()))),
-    modelVersion: z.wire('model_version', z._default(z.enum(['fast', 'general']), 'fast')),
-    isCustom: z.wire('is_custom', z.optional(z.boolean())),
-    useNoise: z.wire('use_noise', z.optional(z.boolean())),
-    fullName: z.wire('full_name', z.optional(z.string())),
-    isMarketingStudioAvatar: z.wire('is_marketing_studio_avatar', z.optional(z.boolean())),
   }
 }
+
+// The pipeline constants the product submits on every soul request — kept on
+// the wire (NOT public settings) so the backend pipeline selection does not
+// silently change. Values mirror fnf-web's soul submitters byte-for-byte.
+const SOUL_PIPELINE_WIRE = {
+  use_refiner: false,
+  use_green: true,
+  lora: null,
+  chain_enhancer: null,
+  model_version: 'fast',
+} as const
 
 function commonSoulV2Validate(settings: { batchSize?: number, seed?: number, aspectRatio?: string }) {
   return [
@@ -88,6 +93,7 @@ export const soulV2Image = defineJob({
     const aspectRatio = (wire.aspect_ratio ?? '3:4') as SoulV2AspectRatioValue
     const { width, height } = getSoulV2Dimensions(quality, aspectRatio)
     return {
+      ...SOUL_PIPELINE_WIRE,
       ...wire,
       model: 'soul_v2',
       prompt: wire.prompt ?? '',
@@ -115,7 +121,6 @@ export const soulCinemaImage = defineJob({
     },
     settings: {
       ...soulV2BaseSettings(DEFAULT_SOUL_CINEMA_STYLE_ID, '16:9', null),
-      timeDenoiseFrom: z.wire('time_denoise_from', z.optional(z.array(z.number()))),
       cinematicVariant: z._default(z.enum(['default', 'olzhas', 'sultan', 'aidar']), 'default'),
     },
   },
@@ -124,18 +129,20 @@ export const soulCinemaImage = defineJob({
   finalize: (wire) => {
     const quality = (wire.quality ?? '1080p') as Quality
     const aspectRatio = (wire.aspect_ratio ?? '16:9') as SoulV2AspectRatioValue
+    // The backend types custom_reference_strength as float (not nullable) —
+    // omit it entirely when there is no custom reference.
+    if (wire.custom_reference_strength == null)
+      delete wire.custom_reference_strength
     const { width, height } = getSoulV2Dimensions(quality, aspectRatio)
     const batchSize = typeof wire.batch_size === 'number' ? wire.batch_size : 1
-    const denoiseInput = Array.isArray(wire.time_denoise_from) ? wire.time_denoise_from : undefined
-    const denoise = denoiseInput
-      ? Array.from({ length: batchSize }, (_, index) => Number(denoiseInput[index] ?? DENOISE_DEFAULT))
-      : Array(batchSize).fill(DENOISE_DEFAULT)
+    const denoise = Array(batchSize).fill(DENOISE_DEFAULT)
     const cinematicVariant = wire.cinematicVariant
     const hasImageReference = Array.isArray(wire.medias) && wire.medias.length > 0
     const rest = { ...wire }
     delete rest.cinematicVariant
 
     return {
+      ...SOUL_PIPELINE_WIRE,
       ...rest,
       model: 'soul_cinematic',
       prompt: hasImageReference ? '' : wire.prompt ?? '',

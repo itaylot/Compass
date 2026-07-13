@@ -1,6 +1,8 @@
+import type { FnfAdapter } from '../../backend'
 import type { Transport, TransportRequest } from '../../transport'
-import type { FnfAdapter } from '../fnf-web-adapter'
 import { describe, expect, it, vi } from 'vitest'
+import { createJobClient, getPreviewUrl, getRawUrl } from '../../client'
+import { nanoBanana2, seedance2_0 } from '../../jobs'
 import { createWorkflowPlatformAdapter } from '../workflow-platform-adapter'
 
 const okTransport: Transport = async () => ({ status: 200, body: {} })
@@ -136,6 +138,114 @@ describe('createWorkflowPlatformAdapter job operations', () => {
     })
 
     await expect(adapter.estimateCost({ jobSetType: 'seedance_2_0', params: {} })).resolves.toEqual({ credits: 23 })
+  })
+
+  it('normalizes flat completed image reads into SDK result urls', async () => {
+    const adapter = createWorkflowPlatformAdapter({
+      transport: async () => ({
+        status: 200,
+        body: {
+          id: 'job-1',
+          job_set_type: 'nano_banana_2',
+          status: 'completed',
+          result_url: 'https://cdn.example/raw.png',
+          min_result_url: 'https://cdn.example/min.webp',
+          params: { prompt: 'portrait' },
+        },
+      }),
+    })
+    const client = createJobClient({ adapter, jobs: [nanoBanana2] })
+
+    const generation = await client.get('job-1')
+
+    expect(generation.results).toEqual({
+      rawUrl: 'https://cdn.example/raw.png',
+      minUrl: 'https://cdn.example/min.webp',
+    })
+    expect(getRawUrl(generation)).toBe('https://cdn.example/raw.png')
+    expect(getPreviewUrl(generation)).toBe('https://cdn.example/min.webp')
+    expect(generation.input.prompt?.instruction).toBe('portrait')
+  })
+
+  it('normalizes nested product feed results for listJobs', async () => {
+    const adapter = createWorkflowPlatformAdapter({
+      transport: async () => ({
+        status: 200,
+        body: {
+          jobs: [
+            {
+              id: 'job-1',
+              job_set_type: 'nano_banana_2',
+              job_set_id: 'set-1',
+              status: 'completed',
+              results: {
+                raw: { url: 'https://cdn.example/raw.png' },
+                min: { url: 'https://cdn.example/min.webp' },
+              },
+              params: { prompt: 'history prompt' },
+              created_at: 123,
+            },
+          ],
+          has_more: false,
+        },
+      }),
+    })
+    const client = createJobClient({ adapter, jobs: [nanoBanana2] })
+
+    const list = await client.list({ type: 'image', size: 50 })
+
+    expect(list.items).toHaveLength(1)
+    expect(list.items[0]).toMatchObject({
+      id: 'job-1',
+      jobSetId: 'set-1',
+      status: 'completed',
+      results: {
+        rawUrl: 'https://cdn.example/raw.png',
+        minUrl: 'https://cdn.example/min.webp',
+      },
+      createdAt: 123,
+    })
+    expect(getPreviewUrl(list.items[0]!)).toBe('https://cdn.example/min.webp')
+    expect(list.items[0]?.input.prompt?.instruction).toBe('history prompt')
+  })
+
+  it('normalizes job-set product payloads and video thumbnail urls', async () => {
+    const adapter = createWorkflowPlatformAdapter({
+      transport: async () => ({
+        status: 200,
+        body: {
+          id: 'set-1',
+          type: 'seedance_2_0',
+          params: { prompt: 'video prompt', duration: 5, aspect_ratio: '16:9', resolution: '720p' },
+          jobs: [
+            {
+              id: 'job-1',
+              status: 'completed',
+              result_url: 'https://cdn.example/video.mp4',
+              thumbnail_url: 'https://cdn.example/thumb.webp',
+            },
+          ],
+        },
+      }),
+    })
+    const client = createJobClient({ adapter, jobs: [seedance2_0] })
+
+    const [generation] = await client.getSet('set-1')
+
+    expect(generation).toMatchObject({
+      id: 'job-1',
+      jobSetId: 'set-1',
+      model: 'seedance_2_0',
+      type: 'video',
+      status: 'completed',
+      results: {
+        rawUrl: 'https://cdn.example/video.mp4',
+        thumbnailUrl: 'https://cdn.example/thumb.webp',
+      },
+    })
+    expect(getRawUrl(generation!)).toBe('https://cdn.example/video.mp4')
+    expect(getPreviewUrl(generation!)).toBe('https://cdn.example/thumb.webp')
+    expect(generation?.input.prompt?.instruction).toBe('video prompt')
   })
 })
 

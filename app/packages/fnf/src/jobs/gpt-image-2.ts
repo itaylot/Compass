@@ -54,54 +54,48 @@ function dimensionsFor(aspectRatio: GptImage2AspectRatioValue, resolution: Resol
   return dimensionsFromRatios(CONCRETE_RATIOS, aspectRatio, base)
 }
 
-function defineGptImage2Job<const Type extends 'gpt_image_2' | 'imagegen_2_0'>(jobSetType: Type) {
-  return defineJob({
-    jobSetType,
-    outputType: 'image',
-    params: {
-      prompt: true,
-      media: {
-        field: 'medias',
-        format: 'wrapped',
-        roles: ['image'],
-        counts: { image: { max: 16 } },
-        rules: [dimensionsWithin(['image'], { minSide: 300, ratio: [0.4, 2.5] })],
-      },
-      settings: {
-        aspectRatio: z.wire('aspect_ratio', z._default(z.aspectRatio(Object.values(GptImage2AspectRatio)), 'auto')),
-        quality: z._default(z.enum(['low', 'medium', 'high']), 'high'),
-        resolution: z._default(z.enum(['1k', '2k', '4k']), '2k'),
-        subModel: z.wire('sub_model', z._default(z.enum(SUB_MODELS), 'videotape-alpha')),
-        batchSize: z.wire('batch_size', z._default(z.number(), 1)),
-        useUnlim: z.wire('use_unlim', z._default(z.boolean(), false)),
-      },
+export const gptImage2 = defineJob({
+  jobSetType: 'gpt_image_2',
+  outputType: 'image',
+  params: {
+    prompt: true,
+    media: {
+      field: 'medias',
+      format: 'wrapped',
+      roles: ['image'],
+      counts: { image: { max: 16 } },
+      rules: [dimensionsWithin(['image'], { minSide: 300, ratio: [0.4, 2.5] })],
     },
-    credits: ({ settings }) => {
-      const quality = settings.quality ?? 'high'
-      const resolution = settings.resolution ?? '2k'
-      return (settings.batchSize ?? 1) * CREDITS_PER_IMAGE[quality][resolution]
+    settings: {
+      aspectRatio: z.wire('aspect_ratio', z._default(z.aspectRatio(Object.values(GptImage2AspectRatio)), 'auto')),
+      quality: z._default(z.enum(['low', 'medium', 'high']), 'high'),
+      resolution: z._default(z.enum(['1k', '2k', '4k']), '2k'),
+      subModel: z.wire('sub_model', z._default(z.enum(SUB_MODELS), 'videotape-alpha')),
+      batchSize: z.wire('batch_size', z._default(z.number(), 1)),
     },
-    validate: ({ prompt, settings }) => [
-      ...promptRequired(prompt),
-      ...intRange('batchSize', settings.batchSize, 1, 4),
-      ...oneOf('aspectRatio', settings.aspectRatio, Object.values(GptImage2AspectRatio)),
-    ],
-    finalize: (wire, input) => {
-      const aspectRatio = wire.aspect_ratio as GptImage2AspectRatioValue
-      const resolution = (wire.resolution ?? '2k') as Resolution
-      const size = aspectRatio === 'auto'
-        ? firstSizeMeta(input.media, ['image']) ?? dimensionsFor(aspectRatio, resolution)
-        : dimensionsFor(aspectRatio, resolution)
+  },
+  credits: ({ settings }) => {
+    const quality = settings.quality ?? 'high'
+    const resolution = settings.resolution ?? '2k'
+    return (settings.batchSize ?? 1) * CREDITS_PER_IMAGE[quality][resolution]
+  },
+  validate: ({ prompt, settings }) => [
+    ...promptRequired(prompt),
+    ...intRange('batchSize', settings.batchSize, 1, 4),
+    ...oneOf('aspectRatio', settings.aspectRatio, Object.values(GptImage2AspectRatio)),
+  ],
+  finalize: (wire, input) => {
+    const aspectRatio = wire.aspect_ratio as GptImage2AspectRatioValue
+    const resolution = (wire.resolution ?? '2k') as Resolution
+    const size = aspectRatio === 'auto'
+      ? firstSizeMeta(input.media, ['image']) ?? dimensionsFor(aspectRatio, resolution)
+      : dimensionsFor(aspectRatio, resolution)
 
-      return {
-        ...wire,
-        model: 'gpt_image_2',
-        width: size.width,
-        height: size.height,
-      }
-    },
-  })
-}
-
-export const gptImage2 = defineGptImage2Job('gpt_image_2')
-export const imagegen2_0 = defineGptImage2Job('imagegen_2_0')
+    return {
+      ...wire,
+      model: 'gpt_image_2',
+      width: size.width,
+      height: size.height,
+    }
+  },
+})

@@ -34,8 +34,6 @@ export const nanoBanana2Upscale = defineJob({
     settings: {
       resolution: z._default(z.enum(RESOLUTIONS), '4k'),
       aspectRatio: z.wire('aspect_ratio', z._default(z.aspectRatio(NANO_BANANA_ASPECT_RATIO_VALUES), NanoBananaAspectRatio.auto)),
-      isStoryboard: z.wire('is_storyboard', z._default(z.boolean(), false)),
-      isZoomControl: z.wire('is_zoom_control', z._default(z.boolean(), false)),
     },
   },
   credits: ({ settings }) => CREDITS[settings.resolution ?? '4k'],

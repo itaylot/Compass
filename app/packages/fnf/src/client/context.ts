@@ -7,7 +7,7 @@ import { createObservabilityContext } from '../observability'
 import { buildRegistry } from '../registry'
 
 export interface ClientConfig<Jobs extends readonly JobEntry[] = readonly JobEntry[]> {
-  /** The transport-agnostic jobs adapter. Use `createDevFnfWebAdapter` (or `createMemoryBackend` in tests), or your own. */
+  /** The transport-agnostic jobs adapter. Use one from `@higgsfield/fnf-adapters`, or your own. */
   adapter: GenerationBackend
   /** Registered jobs — the source of `model`/`settings` autocomplete on `submit`. */
   jobs: Jobs

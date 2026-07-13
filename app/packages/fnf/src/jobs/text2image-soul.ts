@@ -7,7 +7,7 @@ import { closestRatioBySize } from './dimensions'
  * The product's default Soul style (fnf-web defaultSoulStyleId, soul-values.tsx).
  * The app NEVER submits style_id null on this surface — it falls back to this id
  * even in image-reference mode (null style_id exists only in fashion-factory
- * flows, where fashion_factory_id is set instead).
+ * flows, where fashion_factory_id is sent instead — via `extra` in the SDK).
  */
 export const DEFAULT_SOUL_STYLE_ID = '464ea177-8d40-4940-8d9d-b438bab269c7'
 
@@ -47,7 +47,6 @@ export const textToImageSoul = defineJob({
     settings: {
       /** The Soul style; the product always sends one (default style when unset). */
       styleId: z.wire('style_id', z._default(z.nullable(z.string()), DEFAULT_SOUL_STYLE_ID)),
-      fashionFactoryId: z.wire('fashion_factory_id', z._default(z.nullable(z.string()), null)),
       customReferenceId: z.wire('custom_reference_id', z.optional(z.nullable(z.string()))),
       customReferenceStrength: z.wire('custom_reference_strength', z.optional(z.nullable(z.number()))),
       steps: z._default(z.number(), 50),
@@ -60,7 +59,6 @@ export const textToImageSoul = defineJob({
       /** Diffusion sampler shift; the product derives 3 (720p) / 4 (1080p) when unset. */
       sampleShift: z.wire('sample_shift', z.optional(z.number())),
       sampleGuideScale: z.wire('sample_guide_scale', z._default(z.number(), 4)),
-      useUnlim: z.wire('use_unlim', z._default(z.boolean(), false)),
     },
   },
   // Ranges from the SoulSubmitParams contract comments (steps 1–50, batch 1–4,
@@ -71,11 +69,13 @@ export const textToImageSoul = defineJob({
       ...intRange('batchSize', settings.batchSize, 1, 4),
       ...intRange('seed', settings.seed, 1, 1_000_000),
     ]
-    // The backend 422s on style_id AND fashion_factory_id both null ("'style_id'
-    // or 'fashion_factory_id' must be provided") — reachable only by passing
-    // styleId: null explicitly, since the default is the product's default style.
-    if (settings.styleId == null && settings.fashionFactoryId == null)
-      issues.push({ loc: ['settings', 'styleId'], msg: 'either styleId or fashionFactoryId is required' })
+    // The backend 422s when style_id AND fashion_factory_id are both absent
+    // ("'style_id' or 'fashion_factory_id' must be provided") — reachable only
+    // by passing styleId: null explicitly, since the default is the product's
+    // default style (a fashion-factory flow would ride fashion_factory_id via
+    // `extra`).
+    if (settings.styleId == null)
+      issues.push({ loc: ['settings', 'styleId'], msg: 'styleId is required (or send fashion_factory_id via extra)' })
     return issues
   },
   finalize: (wire) => {

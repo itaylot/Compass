@@ -44,7 +44,6 @@ export const wan27 = defineJob({
       quality: z._default(z.enum(QUALITIES), '720p'),
       duration: z._default(z.duration({ min: 2, max: 15 }), 5),
       aspectRatio: z.wire('aspect_ratio', z._default(z.aspectRatio(ASPECT_RATIOS), '16:9')),
-      useUnlim: z.wire('use_unlim', z._default(z.boolean(), false)),
     },
   },
   credits: ({ settings }) => Math.ceil((settings.duration ?? 5) * (settings.quality === '1080p' ? 2.5 : 1.5)),

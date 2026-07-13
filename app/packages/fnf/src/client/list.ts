@@ -1,4 +1,4 @@
-import type { Generation, GenerationStatus, OutputType } from '../types'
+import type { Generation, GenerationResults, GenerationStatus, OutputType } from '../types'
 import type { GenerationContext } from './context'
 import { observeAsync } from '../observability'
 import { parseGeneration } from '../spec'
@@ -47,11 +47,15 @@ export async function listGenerations(ctx: GenerationContext, opts: ListOptions 
 interface RawListItem {
   id: string
   job_set_type?: string
+  job_set_id?: string
+  job_set_parent_id?: string | null
   status?: string
   result_url?: string | null
   min_result_url?: string | null
+  thumbnail_url?: string | null
   params?: Record<string, unknown>
   created_at?: number
+  fail_reason?: string | null
 }
 
 function parseListItem(ctx: GenerationContext, item: RawListItem, fallbackType?: OutputType): Generation {
@@ -60,27 +64,46 @@ function parseListItem(ctx: GenerationContext, item: RawListItem, fallbackType?:
     return parseGeneration(
       {
         id: item.id,
+        job_set_id: item.job_set_id,
+        job_set_parent_id: item.job_set_parent_id,
         status: item.status ?? 'pending',
         result_url: item.result_url,
         min_result_url: item.min_result_url,
+        thumbnail_url: item.thumbnail_url,
         params: item.params,
         created_at: item.created_at,
+        fail_reason: item.fail_reason,
       },
       entry,
     )
   }
   // Unregistered job type: keep raw params in `extra` so nothing is dropped.
   const completed = item.status === 'completed' && Boolean(item.result_url)
-  const results = completed
-    ? { rawUrl: item.result_url as string, ...(item.min_result_url ? { minUrl: item.min_result_url } : {}) }
-    : undefined
+  const results = completed ? buildUnknownListResults(item, fallbackType) : undefined
   return {
     id: item.id,
+    ...(item.job_set_id ? { jobSetId: item.job_set_id } : {}),
+    ...(item.job_set_parent_id ? { parentJobSetId: item.job_set_parent_id } : {}),
     model: item.job_set_type ?? 'unknown',
     type: fallbackType ?? 'image',
     status: (item.status ?? 'pending') as GenerationStatus,
     input: { model: item.job_set_type ?? 'unknown', settings: {}, ...(item.params ? { extra: item.params } : {}) },
     ...(results ? { results } : {}),
+    ...(item.fail_reason ? { failReason: item.fail_reason } : {}),
     ...(item.created_at !== undefined ? { createdAt: item.created_at } : {}),
   }
+}
+
+function buildUnknownListResults(item: RawListItem, fallbackType?: OutputType): GenerationResults {
+  const results: GenerationResults = { rawUrl: item.result_url as string }
+  if (fallbackType === 'video') {
+    if (item.thumbnail_url || item.min_result_url)
+      results.thumbnailUrl = item.thumbnail_url ?? item.min_result_url ?? undefined
+    return results
+  }
+  if (item.min_result_url)
+    results.minUrl = item.min_result_url
+  else if (item.thumbnail_url)
+    results.thumbnailUrl = item.thumbnail_url
+  return results
 }

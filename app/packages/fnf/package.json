@@ -16,12 +16,16 @@
     "./media": "./src/media/index.ts",
     "./profile": "./src/profile/index.ts",
     "./observability": "./src/observability/index.ts",
-    "./adapters": "./src/adapters/index.ts",
+    "./workflow-platform": "./src/workflow-platform/index.ts",
     "./errors": "./src/errors.ts",
     "./package.json": "./package.json"
   },
-  "files": ["src"],
+  "files": [
+    "src"
+  ],
   "scripts": {
+    "build": "vite build",
+    "publish:prepare": "node scripts/make-publish-package.mjs",
     "test": "vitest run",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
@@ -31,6 +35,8 @@
   "devDependencies": {
     "@types/node": "^20.17.30",
     "typescript": "^5.8.3",
+    "vite": "^8.1.3",
+    "vite-plugin-dts": "^5.0.3",
     "vitest": "^4.0.17",
     "zod": "^4.0.0"
   }

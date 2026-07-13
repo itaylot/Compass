@@ -1,4 +1,3 @@
-import { createMemoryProfileAdapter } from '@higgsfield/fnf/adapters'
 import { createProfileClient } from '@higgsfield/fnf/profile'
 import { QueryClient } from '@tanstack/react-query'
 import { describe, expect, it, vi } from 'vitest'
@@ -13,7 +12,7 @@ import {
   setProfileSnapshot,
 } from '../profile-query'
 import { switchWorkspaceMutationOptions } from '../workspace-switch'
-import { gen } from './test-utils'
+import { createMemoryProfileAdapter, gen } from './test-utils'
 
 describe('profile query options', () => {
   it('fetches profile pieces through the SDK profile client into scoped keys', async () => {

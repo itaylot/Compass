@@ -36,6 +36,10 @@ export interface TripItem {
   phone: string;
   // קבוצת חלופות לינה (מזהה משותף לכל האופציות לאותו לילה)
   lodgingGroup: string;
+  // מידע על הפעילות
+  openingHours: string; // שעות פתיחה
+  cost: string; // עלות / מחיר
+  info: string; // מידע כללי נוסף
 }
 
 export interface Reminder {

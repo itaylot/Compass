@@ -24,6 +24,9 @@ function emptyDraft(day: number): ItemDraft {
     bookingRef: "",
     phone: "",
     lodgingGroup: "",
+    openingHours: "",
+    cost: "",
+    info: "",
   };
 }
 
@@ -339,10 +342,38 @@ export function ItemForm(props: {
             onClick={() => setShowExtras((s) => !s)}
             className="rounded-xl bg-white px-3 py-2 text-right text-xs font-bold text-[var(--muted)] shadow-sm"
           >
-            {showExtras ? "▼" : "◀"} פרטי הזמנה, טלפון, קישור ותגיות
+            {showExtras ? "▼" : "◀"} שעות פתיחה, עלות, מידע, הזמנה ותגיות
           </button>
           {showExtras && (
             <div className="flex flex-col gap-3 rounded-2xl bg-white p-3 shadow-sm">
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className={labelCls}>🕐 שעות פתיחה</label>
+                  <input
+                    className={inputCls}
+                    placeholder="למשל: 09:00–18:00"
+                    value={draft.openingHours}
+                    onChange={(e) => set("openingHours", e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className={labelCls}>💰 עלות</label>
+                  <input
+                    className={inputCls}
+                    placeholder="למשל: חינם / 150 NOK"
+                    value={draft.cost}
+                    onChange={(e) => set("cost", e.target.value)}
+                  />
+                </div>
+              </div>
+              <div>
+                <label className={labelCls}>ℹ️ מידע כללי (טיפים, מה חשוב לדעת)</label>
+                <textarea
+                  className={`${inputCls} min-h-16`}
+                  value={draft.info}
+                  onChange={(e) => set("info", e.target.value)}
+                />
+              </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className={labelCls}>מספר אישור הזמנה</label>

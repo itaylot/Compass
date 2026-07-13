@@ -138,7 +138,7 @@ export interface SwitchWorkspaceInput {
 }
 
 export interface ProfileClientConfig {
-  /** The transport-agnostic profile adapter. Use `createDevFnfWebAdapter` or a custom adapter. */
+  /** The transport-agnostic profile adapter. Use one from `@higgsfield/fnf-adapters`, or your own. */
   profileAdapter: ProfileBackend
   observability?: FnfObservabilityOptions
 }

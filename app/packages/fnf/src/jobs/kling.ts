@@ -58,7 +58,6 @@ export const klingVideo = defineJob({
       duration: z.duration({ values: [5, 10] }),
       /** Fallback for width/height when the start image's size is unknown locally. */
       aspectRatio: z.wire('aspect_ratio', z._default(z.string(), '16:9')),
-      useUnlim: z.wire('use_unlim', z._default(z.boolean(), false)),
     },
   },
   validate: ({ prompt, media, settings }) => {

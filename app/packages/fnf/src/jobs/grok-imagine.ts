@@ -71,7 +71,6 @@ export const grokImagine = defineJob({
       duration: z._default(z.duration({ min: 1, max: 15 }), 6),
       resolution: z._default(z.enum(RESOLUTIONS), '720p'),
       aspectRatio: z.wire('aspect_ratio', z._default(z.aspectRatio(ASPECT_RATIOS), 'auto')),
-      useUnlim: z.wire('use_unlim', z._default(z.boolean(), false)),
     },
   },
   credits: ({ settings }) => Math.ceil((settings.duration ?? 6) * 1.5),
@@ -110,7 +109,6 @@ export const grokImagineV15 = defineJob({
     settings: {
       duration: z._default(z.duration({ min: 2, max: 15 }), 6),
       resolution: z._default(z.enum(RESOLUTIONS), '720p'),
-      useUnlim: z.wire('use_unlim', z._default(z.boolean(), false)),
     },
   },
   credits: ({ settings }) => {

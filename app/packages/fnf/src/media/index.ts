@@ -13,6 +13,7 @@ export { createMediaContext } from './context'
 export { createDomMediaMetaResolver } from './dom-meta-resolver'
 export {
   ConfirmError,
+  InvalidMediaSourceError,
   MediaModerationError,
   PresignError,
   UploadNotSupportedError,
@@ -23,6 +24,9 @@ export { getMedia } from './get'
 export { listMedia } from './list'
 export { defaultFilenameForContentType, inferContentType, inferUploadType } from './mime'
 export { resolveMedia } from './resolve'
+// Upload kind → product input-media discriminator (media_input/video_input/
+// audio_input) — the vocabulary media adapters answer presigns with.
+export { REF_TYPE_BY_UPLOAD } from './types'
 export type {
   BinaryUploader,
   MediaBytes,

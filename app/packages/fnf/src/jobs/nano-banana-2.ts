@@ -2,7 +2,6 @@ import { defineJob } from '../define-job'
 import { dimensionsWithin } from '../groups/media'
 import { z } from '../z'
 import { intRange, oneOf, promptMax, promptRequired } from './checks'
-import { mediaRefSchema, toWireMediaData } from './image-helpers'
 import {
   getNanoBananaDimensions,
   NANO_BANANA_ASPECT_RATIO_VALUES,
@@ -21,14 +20,13 @@ const CREDITS_PER_IMAGE: Record<NanoBananaResolution, number> = {
   '4k': 4,
 }
 
-const presetsSchema = z.object({
-  outfitCollagePresetId: z.optional(z.string()),
-})
-
 /**
  * Nano Banana Pro. Grounded in fnf-web's `job-image-nano-banana-2` module.
- * The app submits `/jobs/nano-banana-2`, with `use_seedream_bonus` lifted to
- * the request body by the adapter and `input_images` kept as a bare array.
+ * The app submits `/jobs/nano-banana-2` with `input_images` kept as a bare
+ * array. Public settings carry ONLY user generation input — the product's
+ * surface/billing markers (application_slug, is_draw/is_ugc/…, use_unlim,
+ * use_seedream_bonus) are not part of the SDK surface; deliberate raw wire
+ * fields belong in `extra`.
  */
 export const nanoBanana2 = defineJob({
   jobSetType: 'nano_banana_2',
@@ -46,20 +44,6 @@ export const nanoBanana2 = defineJob({
       aspectRatio: z.wire('aspect_ratio', z._default(z.aspectRatio(NANO_BANANA_ASPECT_RATIO_VALUES), '3:4')),
       resolution: z._default(z.enum(['1k', '2k', '4k']), '1k'),
       batchSize: z.wire('batch_size', z._default(z.number(), 1)),
-      useUnlim: z.wire('use_unlim', z._default(z.boolean(), false)),
-      useSeedreamBonus: z.wire('use_seedream_bonus', z.optional(z.boolean())),
-      isStoryboard: z.wire('is_storyboard', z._default(z.boolean(), false)),
-      isZoomControl: z.wire('is_zoom_control', z._default(z.boolean(), false)),
-      presets: z.optional(presetsSchema),
-      applicationSlug: z.wire('application_slug', z.optional(z.string())),
-      isDraw: z.wire('is_draw', z.optional(z.boolean())),
-      isUgc: z.wire('is_ugc', z.optional(z.boolean())),
-      isProductPlacement: z.wire('is_product_placement', z.optional(z.boolean())),
-      isPhotoSet: z.wire('is_photo_set', z.optional(z.boolean())),
-      isPainting: z.wire('is_painting', z.optional(z.boolean())),
-      paintImage: z.wire('paint_image', z.optional(mediaRefSchema)),
-      fashionFactoryId: z.wire('fashion_factory_id', z.optional(z.string())),
-      isBatch: z.wire('_isBatch', z.optional(z.boolean())),
     },
   },
   credits: ({ settings }) => (settings.batchSize ?? 1) * CREDITS_PER_IMAGE[settings.resolution ?? '1k'],
@@ -72,22 +56,13 @@ export const nanoBanana2 = defineJob({
   finalize: (wire, input) => {
     const ratio = resolveNanoBananaRatio(input, ['image'], wire.aspect_ratio as never)
     const { width, height } = getNanoBananaDimensions((wire.resolution ?? '1k') as NanoBananaResolution, ratio)
-    const presets = wire.presets as { outfitCollagePresetId?: string } | undefined
-    const paintImage = toWireMediaData(wire.paint_image)
-    const rest = { ...wire }
-    delete rest.presets
-    delete rest.paint_image
 
     return {
-      ...rest,
+      ...wire,
       aspect_ratio: ratio,
       width,
       height,
       input_images: wire.input_images ?? [],
-      ...(presets?.outfitCollagePresetId
-        ? { presets: { outfit_collage_preset_id: presets.outfitCollagePresetId } }
-        : {}),
-      ...(paintImage ? { paint_image: paintImage } : {}),
     }
   },
 })

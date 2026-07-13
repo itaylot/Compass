@@ -1,7 +1,4 @@
 import { describe, expect, it, vi } from 'vitest'
-import { createJobClient } from '../../client'
-import { nanoBanana2 } from '../../jobs/nano-banana-2'
-import { createDevFnfWebAdapter } from '../dev-fnf-web-adapter'
 import { createFetchTransport } from '../fetch-transport'
 
 interface FakeCall {
@@ -70,48 +67,5 @@ describe('createFetchTransport', () => {
     const res = await transport({ method: 'GET', path: '/health' })
     expect(res.status).toBe(502)
     expect(res.body).toBeUndefined()
-  })
-})
-
-describe('createDevFnfWebAdapter over fetch (header auth)', () => {
-  it('submits on behalf of the dev user, sending hf-dev-user-id to the per-type /jobs route', async () => {
-    const { fn, calls } = fakeFetch(200, { id: 'job-9', status: 'queued' })
-    const client = createJobClient({
-      adapter: createDevFnfWebAdapter({
-        baseUrl: 'https://dev-fnf.higgsfield.ai',
-        userId: 'user_test00000000000000000000',
-        fetch: fn,
-      }),
-      jobs: [nanoBanana2],
-    })
-
-    const { generations } = await client.submit({
-      model: 'nano_banana_2',
-      prompt: { instruction: 'a blue cat' },
-      settings: { aspectRatio: '1:1', resolution: '2k' },
-    })
-
-    expect(calls[0].url).toBe('https://dev-fnf.higgsfield.ai/jobs/nano-banana-2')
-    const headers = calls[0].init.headers as Headers
-    expect(headers.get('hf-dev-user-id')).toBe('user_test00000000000000000000')
-    expect(headers.get('fnf-mcp-secret')).toBeNull() // no service secret — the dev header alone is the auth
-    expect(headers.get('authorization')).toBeNull()
-    expect(JSON.parse(calls[0].init.body as string)).toEqual({
-      params: {
-        prompt: 'a blue cat',
-        aspect_ratio: '1:1',
-        resolution: '2k',
-        width: 2048,
-        height: 2048,
-        input_images: [],
-        batch_size: 1,
-        use_unlim: false,
-        is_storyboard: false,
-        is_zoom_control: false,
-      },
-      use_unlim: false,
-      use_seedream_bonus: false,
-    })
-    expect(generations[0]).toMatchObject({ id: 'job-9', status: 'queued', model: 'nano_banana_2' })
   })
 })

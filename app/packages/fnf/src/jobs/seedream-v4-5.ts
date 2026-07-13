@@ -1,6 +1,6 @@
 import { defineJob } from '../define-job'
 import { z } from '../z'
-import { intRange, oneOf, promptMax, promptRequired } from './checks'
+import { intRange, oneOf, promptMax, promptRequired, randomSeed } from './checks'
 import { firstSizeMeta } from './dimensions'
 
 export const SeedreamV4_5AspectRatio = {
@@ -38,8 +38,9 @@ export const seedreamV4_5 = defineJob({
       aspectRatio: z.wire('aspect_ratio', z._default(z.aspectRatio(Object.values(SeedreamV4_5AspectRatio)), '3:4')),
       quality: z._default(z.enum(['basic', 'high']), 'basic'),
       batchSize: z.wire('batch_size', z._default(z.number(), 1)),
-      seed: z.optional(z.number()),
-      useUnlim: z.wire('use_unlim', z._default(z.boolean(), false)),
+      // The backend requires params.seed (422 'Field required' without it) —
+      // default a random one like the product form does.
+      seed: z._default(z.number(), randomSeed),
     },
   },
   credits: ({ settings }) => settings.batchSize ?? 1,

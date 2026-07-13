@@ -67,7 +67,6 @@ export const kling3_0 = defineJob({
       multiShotMode: z.wire('multi_shot_mode', z._default(z.enum(['auto', 'custom']), 'auto')),
       multiPrompt: z.wire('multi_prompt', z.optional(multiPromptSchema)),
       klingElementIds: z.wire('kling_element_ids', z.optional(z.array(z.string()))),
-      useUnlim: z.wire('use_unlim', z._default(z.boolean(), false)),
     },
   },
   credits: ({ settings }) => {

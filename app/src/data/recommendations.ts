@@ -22,6 +22,10 @@ export interface Recommendation {
   priceLevel?: 1 | 2 | 3; // $ $$ $$$
   tags: string[]; // ספא, בריכה, גשום, משפחתי, חובה, נוף...
   durationMin?: number; // משך מוצע; אם ריק — ברירת מחדל לפי קטגוריה
+  // מידע על הפעילות (אופציונלי — נשמר גם על הפריט אחרי "הוסף ליום")
+  openingHours?: string;
+  cost?: string;
+  info?: string;
 }
 
 // משך ברירת מחדל לפי קטגוריה (כשלהמלצה אין durationMin משלה)
@@ -81,6 +85,9 @@ export const recommendations: Recommendation[] = [
     name: "פארק הפסלים ויגלנד", shortDescription: "הליכה קלה בין מאות פסלים",
     why: "חינם, יפהפה ומתאים לכל הגילים", lat: 59.927, lng: 10.7007,
     bookingUrl: "https://vigeland.museum.no", rating: 8.8, priceLevel: 1, tags: ["בחינם", "משפחתי", "הליכה קלה"],
+    openingHours: "הפארק פתוח תמיד",
+    cost: "כניסה חופשית",
+    info: "פארק ענק עם מאות פסלים. שירותים ליד הכניסה הראשית. נוח לעגלות.",
   },
   {
     id: "rec-oslo-activity-fram", area: "אוסלו", category: "activity",
@@ -115,6 +122,9 @@ export const recommendations: Recommendation[] = [
     why: "אחת התצפיות היפות בנורווגיה — חובה", lat: 60.9203, lng: 7.2077,
     bookingUrl: "https://www.nasjonaleturistveger.no/no/turistvegar/aurlandsfjellet", rating: 9.3, priceLevel: 1,
     tags: ["חובה", "נוף", "בחינם"],
+    openingHours: "פתוח תמיד (הכביש עשוי להיסגר בחורף)",
+    cost: "כניסה חופשית · חניה בתשלום",
+    info: "העלייה בכביש הרים צר ותלול — נהגו לאט. אור בוקר הכי יפה, לקחת שכבה חמה.",
   },
   {
     id: "rec-flam-activity-railway", area: "פלום ואאורלנד", category: "activity",
@@ -122,6 +132,9 @@ export const recommendations: Recommendation[] = [
     why: "חוויה בלתי נשכחת, כרטיסים מראש", lat: 59.8631, lng: 7.1123,
     bookingUrl: "https://www.norwaysbest.com/flam-railway/", rating: 9.1, priceLevel: 3,
     tags: ["חובה", "משפחתי", "הזמנה"],
+    openingHours: "מספר יציאות ביום, משתנה לפי עונה",
+    cost: "מבוגר ~450 NOK הלוך-חזור (מחיר משוער — בדקו באתר)",
+    info: "כדאי להזמין מראש בעונה. לשבת בצד ימין בעלייה לנוף הטוב ביותר. עצירה קצרה במפל קיוספוסן.",
   },
   {
     id: "rec-flam-activity-cruise", area: "פלום ואאורלנד", category: "activity",
@@ -162,6 +175,9 @@ export const recommendations: Recommendation[] = [
     name: "פלויבאנן והר פלויין", shortDescription: "רכבל להר, נוף ויער טרולים",
     why: "נוף עוצר נשימה + מגרש משחקים למעלה", lat: 60.3961, lng: 5.3286,
     bookingUrl: "https://www.floyen.no", rating: 9.0, priceLevel: 2, tags: ["חובה", "משפחתי", "נוף"],
+    openingHours: "רכבל בערך 07:30–23:00 (בדקו לפי עונה)",
+    cost: "רכבל מבוגר ~160 NOK הלוך-חזור (משוער), ילדים בהנחה",
+    info: "כרטיסים אונליין חוסכים תור. אפשר לרדת גם רגלית. מגרש משחקים ונוף למעלה.",
   },
   {
     id: "rec-bergen-view-bryggen", area: "ברגן", category: "view",
@@ -202,6 +218,9 @@ export const recommendations: Recommendation[] = [
     why: "מרהיב עם פלטפורמות בטוחות — חובה", lat: 60.4269, lng: 7.2497,
     bookingUrl: "https://www.nasjonaleturistveger.no/no/turistvegar/hardanger", rating: 9.2, priceLevel: 1,
     tags: ["חובה", "מפל", "נוף"],
+    openingHours: "פתוח תמיד",
+    cost: "כניסה חופשית · חניה בתשלום",
+    info: "פלטפורמות תצפית וגשר צעדים חדשים ובטוחים. קר ורוחי גם בקיץ — לקחת שכבה. שירותים בחניה.",
   },
   {
     id: "rec-eid-view-steins", area: "איידפיורד והרדנגר", category: "view",

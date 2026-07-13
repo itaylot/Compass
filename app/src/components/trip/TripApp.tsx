@@ -311,10 +311,14 @@ export default function TripApp({ initialData }: { initialData?: TripData }) {
       }`}
     >
       <header className="flex items-center justify-between px-4 pb-2 pt-4">
-        <div className="min-w-0">
+        <button
+          onClick={() => setTab("today")}
+          className="min-w-0 text-right"
+          aria-label="חזרה לדף הבית"
+        >
           <h1 className="truncate text-xl font-extrabold leading-tight text-[var(--brand)]">{settings.title}</h1>
           {settings.subtitle && <p className="truncate text-xs font-medium text-[var(--muted)]">{settings.subtitle}</p>}
-        </div>
+        </button>
         <div className="flex items-center gap-2">
           <button
             onClick={() => setHelpOpen(true)}
@@ -323,7 +327,9 @@ export default function TripApp({ initialData }: { initialData?: TripData }) {
           >
             ?
           </button>
-          <span className="text-3xl" aria-hidden>🏔️</span>
+          <button onClick={() => setTab("today")} aria-label="חזרה לדף הבית" className="text-3xl leading-none">
+            🏔️
+          </button>
         </div>
       </header>
 
@@ -351,6 +357,8 @@ export default function TripApp({ initialData }: { initialData?: TripData }) {
             toggleDone={(i) => statusMutation.mutate(i)}
             openDetail={setDetailId}
             openAdd={() => setFormItem("new")}
+            onShowMap={(id) => focusOnMap(id)}
+            onEditItem={(i) => setFormItem(i)}
           />
         )}
         {tab === "forecast" && <ForecastScreen settings={settings} items={items} todayNum={todayNum} />}
@@ -435,13 +443,8 @@ export default function TripApp({ initialData }: { initialData?: TripData }) {
         <DetailSheet
           item={detailItem}
           dateLabel={dayDateLabel(settings.startDate, detailItem.day)}
+          onEdit={() => setFormItem(detailItem)}
           close={() => setDetailId(null)}
-          toggleDone={() => statusMutation.mutate(detailItem)}
-          edit={() => setFormItem(detailItem)}
-          focusOnMap={() => {
-            setDetailId(null);
-            focusOnMap(detailItem.id);
-          }}
         />
       )}
 
@@ -476,32 +479,47 @@ export default function TripApp({ initialData }: { initialData?: TripData }) {
 
       <nav className="fixed inset-x-0 bottom-0 z-[1100] border-t border-black/5 bg-white/95 backdrop-blur">
         <div
-          className={`mx-auto flex w-full items-stretch justify-around pb-[max(env(safe-area-inset-bottom),6px)] pt-1.5 ${
+          className={`relative mx-auto flex w-full items-end justify-between px-2 pb-[max(env(safe-area-inset-bottom),6px)] pt-1.5 ${
             tab === "lab" ? "max-w-3xl" : "max-w-md"
           }`}
         >
-          {(
-            [
-              { id: "today", icon: "🏠", label: "היום" },
-              { id: "forecast", icon: "🌤️", label: "תחזית" },
-              { id: "map", icon: "🗺️", label: "מפה" },
-              { id: "plan", icon: "📋", label: "תכנון" },
-              { id: "lab", icon: "🧭", label: "מעבדה" },
-              { id: "info", icon: "ℹ️", label: "מידע" },
-            ] as { id: Tab; icon: string; label: string }[]
-          ).map((t) => (
-            <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
-              className={`flex min-w-[52px] flex-col items-center gap-0.5 rounded-xl px-2 py-1 text-[11px] font-semibold transition-colors ${
-                tab === t.id ? "tab-active text-[var(--brand)]" : "text-[var(--muted)]"
-              }`}
-              aria-current={tab === t.id ? "page" : undefined}
-            >
-              <span className={`text-xl leading-none ${tab === t.id ? "" : "grayscale opacity-70"}`}>{t.icon}</span>
-              {t.label}
-            </button>
-          ))}
+          {/* קבוצה ימנית */}
+          <div className="flex flex-1 items-stretch justify-around">
+            {(
+              [
+                { id: "today", icon: "🏠", label: "היום" },
+                { id: "forecast", icon: "🌤️", label: "תחזית" },
+              ] as { id: Tab; icon: string; label: string }[]
+            ).map((t) => (
+              <NavTab key={t.id} t={t} active={tab === t.id} onClick={() => setTab(t.id)} />
+            ))}
+          </div>
+
+          {/* כפתור מפה מרכזי ומורם */}
+          <button
+            onClick={() => setTab("map")}
+            aria-label="מפה"
+            aria-current={tab === "map" ? "page" : undefined}
+            className={`relative -top-5 flex h-16 w-16 shrink-0 flex-col items-center justify-center gap-0.5 rounded-full border-4 border-white bg-[var(--brand)] text-white shadow-lg transition-transform ${
+              tab === "map" ? "scale-105" : ""
+            }`}
+          >
+            <span className="text-2xl leading-none">🗺️</span>
+            <span className="text-[9px] font-bold leading-none">מפה</span>
+          </button>
+
+          {/* קבוצה שמאלית */}
+          <div className="flex flex-1 items-stretch justify-around">
+            {(
+              [
+                { id: "plan", icon: "📋", label: "תכנון" },
+                { id: "lab", icon: "🧭", label: "מעבדה" },
+                { id: "info", icon: "ℹ️", label: "מידע" },
+              ] as { id: Tab; icon: string; label: string }[]
+            ).map((t) => (
+              <NavTab key={t.id} t={t} active={tab === t.id} onClick={() => setTab(t.id)} />
+            ))}
+          </div>
         </div>
       </nav>
     </div>
@@ -578,6 +596,21 @@ function StatusBadge({ status }: { status: Status }) {
   );
 }
 
+function NavTab({ t, active, onClick }: { t: { id: Tab; icon: string; label: string }; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex min-w-[46px] flex-col items-center gap-0.5 rounded-xl px-1 py-1 text-[11px] font-semibold transition-colors ${
+        active ? "tab-active text-[var(--brand)]" : "text-[var(--muted)]"
+      }`}
+      aria-current={active ? "page" : undefined}
+    >
+      <span className={`text-xl leading-none ${active ? "" : "grayscale opacity-70"}`}>{t.icon}</span>
+      {t.label}
+    </button>
+  );
+}
+
 function EmptyTrip({ openAdd }: { openAdd: () => void }) {
   return (
     <div className="mx-4 mt-6 flex flex-col items-center gap-3 rounded-2xl bg-white p-8 text-center shadow-sm">
@@ -598,8 +631,13 @@ function EmptyTrip({ openAdd }: { openAdd: () => void }) {
   );
 }
 
-function ItemActions(props: { item: TripItem; toggleDone: () => void; openDetail: () => void }) {
-  const { item, toggleDone, openDetail } = props;
+function ItemActions(props: {
+  item: TripItem;
+  toggleDone: () => void;
+  openDetail: () => void;
+  onShowMap: () => void;
+}) {
+  const { item, toggleDone, openDetail, onShowMap } = props;
   const park = hasParking(item);
   return (
     <div className="mt-2 flex flex-wrap gap-2">
@@ -612,6 +650,15 @@ function ItemActions(props: { item: TripItem; toggleDone: () => void; openDetail
       >
         {park ? "חניה 🅿️" : "Waze 🚗"}
       </a>
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          onShowMap();
+        }}
+        className="rounded-full bg-black/5 px-3 py-1 text-xs font-bold text-[var(--ink)]"
+      >
+        מפה 🗺️
+      </button>
       <button
         onClick={(e) => {
           e.stopPropagation();
@@ -654,10 +701,13 @@ function TodayScreen(props: {
   toggleDone: (i: TripItem) => void;
   openDetail: (id: string) => void;
   openAdd: () => void;
+  onShowMap: (id: string) => void;
+  onEditItem: (i: TripItem) => void;
 }) {
   const {
     settings, day, setDay, items, hasAnyItems, selectedId, todayNum, isViewingCurrentDay,
     openReminderCount, onOpenReminders, onPinSelect, onCardSelect, toggleDone, openDetail, openAdd,
+    onShowMap, onEditItem,
   } = props;
 
   const area = items.find((i) => i.category !== "drive")?.location || items[0]?.location || "";
@@ -775,7 +825,19 @@ function TodayScreen(props: {
                   <h3 className={`text-sm font-bold leading-snug ${item.status === "done" ? "line-through" : ""}`}>
                     {item.name}
                   </h3>
-                  <StatusBadge status={item.status} />
+                  <div className="flex shrink-0 items-center gap-1.5">
+                    <StatusBadge status={item.status} />
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onEditItem(item);
+                      }}
+                      aria-label="עריכה"
+                      className="flex h-6 w-6 items-center justify-center rounded-md bg-black/5 text-xs text-[var(--muted)]"
+                    >
+                      ✏️
+                    </button>
+                  </div>
                 </div>
                 {item.shortDescription && (
                   <p className="mt-0.5 text-xs leading-relaxed text-[var(--muted)]">{item.shortDescription}</p>
@@ -785,7 +847,12 @@ function TodayScreen(props: {
                   {item.location ? ` · ${item.location}` : ""}
                   {hasParking(item) ? " · 🅿️ חניה" : ""}
                 </div>
-                <ItemActions item={item} toggleDone={() => toggleDone(item)} openDetail={() => openDetail(item.id)} />
+                <ItemActions
+                  item={item}
+                  toggleDone={() => toggleDone(item)}
+                  openDetail={() => openDetail(item.id)}
+                  onShowMap={() => onShowMap(item.id)}
+                />
               </div>
             </article>
             {/* שביל מקווקו מתפתל (סללום) בין העצירות — לא בתוך המשבצת, כדי לא לנפח אותה */}
@@ -836,18 +903,26 @@ function MapScreen(props: {
   const todayNum = currentTripDay(settings);
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <FilterChips filter={filter} setFilter={setFilter} />
-      <DayChips settings={settings} day={day} setDay={setDay} todayNum={todayNum} />
-      <div className="relative mx-4 mb-2 min-h-0 flex-1 overflow-hidden rounded-2xl shadow-sm">
-        <MapView items={items} selectedId={selectedId} onSelect={onSelect} className="h-full min-h-72" />
+    <div className="relative flex min-h-0 flex-1 flex-col">
+      {/* המפה ממלאה את כל החלון */}
+      <MapView items={items} selectedId={selectedId} onSelect={onSelect} className="absolute inset-0" />
+
+      {/* פילטרים ובורר ימים צפים מעל המפה */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-[600] bg-gradient-to-b from-[var(--paper)] via-[var(--paper)]/80 to-transparent pb-6">
+        <div className="pointer-events-auto">
+          <FilterChips filter={filter} setFilter={setFilter} />
+          <DayChips settings={settings} day={day} setDay={setDay} todayNum={todayNum} />
+        </div>
+      </div>
+
+      <div className="pointer-events-none relative min-h-0 flex-1">
         {items.length === 0 && (
-          <div className="pointer-events-none absolute inset-x-4 top-4 z-[1000] rounded-2xl bg-white/90 p-3 text-center text-xs font-semibold text-[var(--muted)] shadow">
+          <div className="absolute inset-x-4 top-28 z-[600] rounded-2xl bg-white/90 p-3 text-center text-xs font-semibold text-[var(--muted)] shadow">
             אין עצירות להצגה ליום ולסינון שנבחרו
           </div>
         )}
         {selected && (
-          <div className="absolute inset-x-2 bottom-2 z-[1000] rounded-2xl bg-white p-3 shadow-lg">
+          <div className="pointer-events-auto absolute inset-x-2 bottom-2 z-[1000] rounded-2xl bg-white p-3 shadow-lg">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
                 <h3 className="text-sm font-extrabold">
@@ -1025,17 +1100,24 @@ function PlanScreen(props: {
 
 /* ─────────── חלונית פרטים ─────────── */
 
-function DetailSheet(props: {
-  item: TripItem;
-  dateLabel: string;
-  close: () => void;
-  toggleDone: () => void;
-  edit: () => void;
-  focusOnMap: () => void;
-}) {
-  const { item, dateLabel, close, toggleDone, edit, focusOnMap } = props;
+function DetailSheet(props: { item: TripItem; dateLabel: string; onEdit: () => void; close: () => void }) {
+  const { item, dateLabel, onEdit, close } = props;
   const cat = CATEGORIES[item.category];
   const park = hasParking(item);
+  const hasInfo =
+    item.openingHours || item.cost || item.info || item.shortDescription || item.notes || item.bookingRef || item.phone;
+
+  const InfoRow = ({ icon, label, value }: { icon: string; label: string; value: string }) =>
+    value ? (
+      <div className="flex gap-2 rounded-xl bg-[var(--paper)] px-3 py-2">
+        <span className="shrink-0">{icon}</span>
+        <div className="min-w-0">
+          <p className="text-[10px] font-bold text-[var(--muted)]">{label}</p>
+          <p className="whitespace-pre-wrap text-xs leading-relaxed">{value}</p>
+        </div>
+      </div>
+    ) : null;
+
   return (
     <div className="fixed inset-0 z-[1150] flex items-end justify-center bg-black/40" onClick={close}>
       <div
@@ -1050,13 +1132,32 @@ function DetailSheet(props: {
             </h2>
             <p className="mt-0.5 text-xs text-[var(--muted)]">
               יום {item.day} · {dateLabel} · {item.time} · {fmtDuration(item.durationMin)}
+              {item.location ? ` · ${item.location}` : ""}
             </p>
           </div>
-          <StatusBadge status={item.status} />
+          <div className="flex shrink-0 items-center gap-1.5">
+            <StatusBadge status={item.status} />
+            <button
+              onClick={onEdit}
+              aria-label="עריכה"
+              className="flex h-7 w-7 items-center justify-center rounded-md bg-black/5 text-sm text-[var(--muted)]"
+            >
+              ✏️
+            </button>
+          </div>
         </div>
+
         {item.shortDescription && <p className="mt-3 text-sm leading-relaxed">{item.shortDescription}</p>}
 
-        {(item.bookingRef || item.phone) && (
+        {/* מידע על הפעילות */}
+        <div className="mt-3 flex flex-col gap-2">
+          <InfoRow icon="🕐" label="שעות פתיחה" value={item.openingHours} />
+          <InfoRow icon="💰" label="עלות" value={item.cost} />
+          <InfoRow icon="ℹ️" label="מידע כללי" value={item.info} />
+          <InfoRow icon="📝" label="הערות" value={item.notes} />
+        </div>
+
+        {(item.bookingRef || item.phone || park) && (
           <div className="mt-2 flex flex-wrap gap-2">
             {item.bookingRef && (
               <span className="rounded-lg bg-[var(--paper)] px-3 py-1.5 text-xs font-bold">אישור: {item.bookingRef}</span>
@@ -1070,28 +1171,25 @@ function DetailSheet(props: {
                 ☎️ {item.phone}
               </a>
             )}
+            {park && (
+              <span className="rounded-lg bg-[var(--paper)] px-3 py-1.5 text-xs font-bold">
+                🅿️ {item.parkingName || "חניה מומלצת"}
+              </span>
+            )}
           </div>
         )}
 
-        {park && (
-          <div className="mt-2 flex items-center justify-between gap-2 rounded-xl bg-[var(--paper)] px-3 py-2">
-            <span className="text-xs font-bold">🅿️ {item.parkingName || "חניה מומלצת"}</span>
-            <a
-              href={parkingUrl(item)}
-              target="_blank"
-              rel="noreferrer"
-              className="rounded-full bg-[var(--brand)] px-3 py-1 text-[11px] font-bold text-white"
-            >
-              נווט לחניה
-            </a>
-          </div>
+        {item.bookingUrl && (
+          <a
+            href={item.bookingUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-2 block rounded-xl bg-[var(--brand)]/10 px-3 py-2 text-center text-xs font-bold text-[var(--brand)]"
+          >
+            🎟️ אתר / הזמנה
+          </a>
         )}
 
-        {item.notes && (
-          <p className="mt-2 whitespace-pre-wrap rounded-xl bg-[var(--paper)] px-3 py-2 text-xs leading-relaxed text-[var(--muted)]">
-            📝 {item.notes}
-          </p>
-        )}
         {item.tags.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-1.5">
             {item.tags.map((t) => (
@@ -1101,47 +1199,18 @@ function DetailSheet(props: {
             ))}
           </div>
         )}
-        <div className="mt-4 flex flex-col gap-2">
-          <div className="flex gap-2">
-            <a
-              href={navigationUrl(item)}
-              target="_blank"
-              rel="noreferrer"
-              className="flex-1 rounded-full bg-[var(--brand)] px-4 py-2.5 text-center text-sm font-bold text-white"
-            >
-              ניווט ליעד 🚗
-            </a>
-            <button
-              onClick={focusOnMap}
-              className="flex-1 rounded-full border border-[var(--brand)] px-4 py-2.5 text-sm font-bold text-[var(--brand)]"
-            >
-              הצג במפה 🗺️
-            </button>
+
+        {!hasInfo && !item.bookingUrl && item.tags.length === 0 && (
+          <div className="mt-3 rounded-xl bg-[var(--paper)] px-3 py-4 text-center text-xs text-[var(--muted)]">
+            אין עדיין פרטים לפעילות.
+            <br />
+            אפשר להוסיף שעות פתיחה, עלות ומידע דרך <b>✏️ עריכה</b>.
           </div>
-          <div className="flex gap-2">
-            <button
-              onClick={toggleDone}
-              className={`flex-1 rounded-full px-4 py-2.5 text-sm font-bold ${
-                item.status === "done" ? "bg-[#E2F0E3] text-[#3E7A41]" : "bg-black/5 text-[var(--ink)]"
-              }`}
-            >
-              {item.status === "done" ? "בוצע ✓ (לביטול)" : "סמן שבוצע"}
-            </button>
-            <button onClick={edit} className="flex-1 rounded-full bg-black/5 px-4 py-2.5 text-sm font-bold">
-              עריכה ✏️
-            </button>
-            {item.bookingUrl && (
-              <a
-                href={item.bookingUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="flex-1 rounded-full bg-black/5 px-4 py-2.5 text-center text-sm font-bold"
-              >
-                🎟️ אתר
-              </a>
-            )}
-          </div>
-        </div>
+        )}
+
+        <p className="mt-3 text-center text-[11px] text-[var(--muted)]">
+          ניווט וסימון "בוצע" זמינים ישירות על כרטיס הפעילות.
+        </p>
       </div>
     </div>
   );

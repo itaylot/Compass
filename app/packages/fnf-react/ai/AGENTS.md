@@ -66,7 +66,7 @@ For generated apps, a clean split is: `@higgsfield/fnf` owns domain contracts,
 ## Provider setup
 
 ```tsx
-import { createFnfWebAdapter } from '@higgsfield/fnf/adapters'
+import { createFnfWebAdapter } from '@higgsfield/fnf-adapters'
 import { seedance2_0 } from '@higgsfield/fnf/jobs'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useMemo } from 'react'
@@ -130,7 +130,11 @@ function App() {
 `FnfProvider` accepts:
 
 - `adapter`: required jobs backend. The fnf-web adapter also satisfies media
-  and profile ports.
+  and profile ports. UI hosts that submit generations must pass the adapter's
+  `confirm` option (a confirmation modal; minimally a `window.confirm`
+  wrapper) — `submit` runs it after validation, before any request, and a
+  rejection surfaces as the typed `confirmation_rejected` error. See
+  "Submission confirmation gate" in `../../fnf/ai/AGENTS.md`.
 - `jobs`: required SDK model registry. Model/settings autocomplete flows from
   this array.
 - `mediaAdapter`, `profileAdapter`: optional overrides when jobs/media/profile

@@ -1,12 +1,12 @@
-import type { ConfirmMediaRequest, JobListQuery, MediaGetQuery, MediaListQuery, SwitchWorkspaceRequest, UploadUrlRequest } from '../backend'
+import type { ConfirmMediaRequest, ConfirmSubmit, FnfAdapter, JobListQuery, MediaGetQuery, MediaListQuery, SwitchWorkspaceRequest, UploadUrlRequest } from '../backend'
 import type { FnfObservabilityOptions } from '../observability'
 import type { Transport, TransportResponse } from '../transport'
-import type { FnfAdapter } from './fnf-web-adapter'
 import { ApiJobError, errorFromResponse } from '../errors'
 import { withObservedTransport } from '../observability'
 import { createFetchTransport } from './fetch-transport'
+import { normalizeJobLike, normalizeJobListBody, normalizeJobSetBody } from './job-response-normalize'
 
-export type { FnfAdapter } from './fnf-web-adapter'
+export type { FnfAdapter } from '../backend'
 
 type MaybePromise<T> = T | Promise<T>
 type RequiredHeaderSource = string | (() => MaybePromise<string>)
@@ -27,6 +27,12 @@ export interface WorkflowPlatformAdapterOptions {
   /** Inject a transport directly (tests / custom). Overrides baseUrl/fetch/header options. */
   transport?: Transport
   observability?: FnfObservabilityOptions
+  /**
+   * Host confirmation gate run by `submit` before any create request. Its
+   * resolved token is sent as `confirmation_token` on the submit body. See
+   * `ConfirmSubmit`.
+   */
+  confirm?: ConfirmSubmit
 }
 
 /**
@@ -73,19 +79,21 @@ export function createWorkflowPlatformAdapter(options: WorkflowPlatformAdapterOp
 
   return {
     // ── jobs ──
-    createJobs: ({ jobSetType, params }) => send('POST', '/jobs/submit', {
+    ...(options.confirm ? { confirm: options.confirm } : {}),
+    createJobs: ({ jobSetType, params, confirmationToken }) => send('POST', '/jobs/submit', {
       job_set_type: jobSetType,
       params,
+      ...(confirmationToken !== undefined ? { confirmation_token: confirmationToken } : {}),
     }),
 
-    getJob: id => send('GET', `/jobs/${encodeURIComponent(id)}`),
+    getJob: async id => normalizeJobReadBody(await send('GET', `/jobs/${encodeURIComponent(id)}`)),
 
-    getJobSet: id => send('GET', `/jobs/sets/${encodeURIComponent(id)}`),
+    getJobSet: async id => normalizeJobSetBody(await send('GET', `/jobs/sets/${encodeURIComponent(id)}`)),
 
     async listJobs(query) {
       if (query.parentId !== undefined)
         throw new ApiJobError('not_supported', 'GET /jobs has no parent filter - the Workflow Platform feed cannot list a job set\'s children (parentId)')
-      return send('GET', jobsFeedPath(query))
+      return normalizeJobListBody(await send('GET', jobsFeedPath(query)))
     },
 
     estimateCost: ({ jobSetType, params }) => send('POST', '/jobs/cost', {
@@ -145,6 +153,14 @@ function cleanHeaders(headers: Record<string, string | undefined>): Record<strin
 function unwrapData(body: unknown): unknown {
   if (isRecord(body) && Object.prototype.hasOwnProperty.call(body, 'data'))
     return body.data
+  return body
+}
+
+function normalizeJobReadBody(body: unknown): unknown {
+  if (isRecord(body) && isRecord(body.job))
+    return normalizeJobLike(body.job, body.job_set)
+  if (isRecord(body))
+    return normalizeJobLike(body)
   return body
 }
 

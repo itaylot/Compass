@@ -92,7 +92,6 @@ export const recraftV41Image = defineJob({
       batchSize: z.wire('batch_size', z._default(z.number(), 1)),
       colors: z.optional(z.array(z.string())),
       backgroundColor: z.wire('background_color', z.optional(z.nullable(z.string()))),
-      useUnlim: z.wire('use_unlim', z._default(z.boolean(), false)),
     },
   },
   credits: ({ settings }) => {

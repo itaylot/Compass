@@ -1,6 +1,5 @@
 import type { GenerationInput } from '@higgsfield/fnf'
 import type { FnfObservationEvent } from '@higgsfield/fnf/observability'
-import { createMemoryBackend, createMemoryMediaAdapter, createMemoryProfileAdapter } from '@higgsfield/fnf/adapters'
 import { defineJob, z } from '@higgsfield/fnf/jobs'
 import { QueryClient } from '@tanstack/react-query'
 import { describe, expect, it, vi } from 'vitest'
@@ -8,6 +7,7 @@ import { costQueryOptions } from '../cost-query'
 import { fnfKeys } from '../keys'
 import { createFnfReactClients } from '../provider'
 import { getWirePreview } from '../wire-preview'
+import { createMemoryBackend, createMemoryMediaAdapter, createMemoryProfileAdapter } from './test-utils'
 
 const demo = defineJob({
   jobSetType: 'demo',

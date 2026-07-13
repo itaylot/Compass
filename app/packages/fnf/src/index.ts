@@ -1,31 +1,9 @@
-export {
-  APPS_MARKETPLACE_DEV_BASE_URL,
-  APPS_MARKETPLACE_SECRET_ENV,
-  createAppsMarketplaceAdapter,
-} from './adapters/apps-marketplace-adapter'
-export type { AppsMarketplaceAdapterOptions } from './adapters/apps-marketplace-adapter'
-export { createDevFnfWebAdapter, DEV_FNF_BASE_URL } from './adapters/dev-fnf-web-adapter'
-export type { DevFnfWebAdapterOptions } from './adapters/dev-fnf-web-adapter'
-// Adapters (the transport boundary) — also available at "@higgsfield/fnf/adapters"
-export { createFetchTransport } from './adapters/fetch-transport'
-export type { FetchTransportOptions } from './adapters/fetch-transport'
-export { createFnfWebAdapter } from './adapters/fnf-web-adapter'
-export type { FnfAdapter, FnfWebAdapterOptions } from './adapters/fnf-web-adapter'
-export { createMemoryBackend } from './adapters/memory-backend'
-export type { MemoryBackendOptions } from './adapters/memory-backend'
-export { createMemoryMediaAdapter } from './adapters/memory-media-adapter'
-export type { MemoryMediaAdapterOptions } from './adapters/memory-media-adapter'
-export { createMemoryProfileAdapter } from './adapters/memory-profile-adapter'
-export type { MemoryProfileAdapterOptions } from './adapters/memory-profile-adapter'
-export { createWorkflowPlatformAdapter } from './adapters/workflow-platform-adapter'
-export type { WorkflowPlatformAdapterOptions } from './adapters/workflow-platform-adapter'
-// Backend ports
-export type { ConfirmMediaRequest, GenerationBackend, JobListQuery, MediaBackend, MediaGetQuery, MediaListQuery, ProfileBackend, SwitchWorkspaceRequest, UploadUrlRequest } from './backend'
+// Backend ports (interfaces — every concrete adapter lives in
+// @higgsfield/fnf-adapters, EXCEPT the one bundled below)
+export type { ConfirmMediaRequest, ConfirmSubmit, ConfirmSubmitRequest, FnfAdapter, GenerationBackend, JobListQuery, MediaBackend, MediaGetQuery, MediaListQuery, ProfileBackend, SwitchWorkspaceRequest, UploadUrlRequest } from './backend'
 // Client half — also available at "@higgsfield/fnf/client" (models: "@higgsfield/fnf/jobs")
 export { createContext, createJobClient, entryFor } from './client'
-
 export { adjust, cancelGeneration, estimateCost, generationsFromBody, getGeneration, listGenerations, pollGeneration, pollJobSetGroup, safeSubmit, submit, waitGenerations } from './client'
-
 export type {
   AdjustResult,
   BaseSubmitFields,
@@ -41,9 +19,10 @@ export type {
   SubmitResult,
   WaitOptions,
 } from './client'
-export { defineJob } from './define-job'
-export type { JobEntry, JobParams, SettingsInput } from './define-job'
 
+export { defineJob } from './define-job'
+
+export type { JobEntry, JobParams, SettingsInput } from './define-job'
 export {
   AccountSuspendedError,
   ApiJobError,
@@ -52,6 +31,7 @@ export {
   BatchRateLimitError,
   BeatFitLimitError,
   BillingError,
+  ConfirmationRejectedError,
   errorFromJSON,
   errorFromResponse,
   GraceDailyLimitError,
@@ -90,17 +70,18 @@ export type {
 
 export { field, group } from './group'
 export type { Codec, FieldDef } from './group'
+
 export { atLeastOneOf, checkMedia, dimensionsWithin, durationsWithin, maxTotal, mediaCodec, requiresOneOf } from './groups/media'
 export type { DimensionLimits, MediaConfig, MediaIssue, MediaRule } from './groups/media'
 export { promptCodec } from './groups/prompt'
 export { countRefs, intRange, oneOf, promptMax, promptRequired, randomSeed } from './jobs/checks'
 export { aspectRatioDimensions, closestRatioBySize, firstSizeMeta, lookupSize, simplifyRatio } from './jobs/dimensions'
 export type { AspectRatioDimensions } from './jobs/dimensions'
-export { gptImage2, GptImage2AspectRatio, imagegen2_0 } from './jobs/gpt-image-2'
+export { gptImage2, GptImage2AspectRatio } from './jobs/gpt-image-2'
 export { grokImagine, GrokImagineAspectRatio, GrokImagineResolution, grokImagineV15 } from './jobs/grok-imagine'
-
 export { happyHorse, HappyHorseAspectRatio, HappyHorseResolution } from './jobs/happy-horse'
 export { KLING_DEFAULT_MOTION_ID, KlingModel, klingVideo } from './jobs/kling'
+
 export { kling3_0, Kling3AspectRatio, Kling3Mode, Kling3Sound } from './jobs/kling-3'
 export { kling3MotionControl, Kling3MotionControlMode, Kling3MotionControlOrientation } from './jobs/kling-3-motion-control'
 export { nanoBanana2, NanoBanana2AspectRatio } from './jobs/nano-banana-2'
@@ -165,7 +146,6 @@ export type {
 } from './media'
 export { resolveMediaMeta } from './media-meta'
 export type { MediaMetaResolver } from './media-meta'
-
 export type { AdjustKind, Adjustment } from './normalize'
 export {
   composeObservers,
@@ -230,13 +210,20 @@ export { buildRegistry } from './registry'
 
 export type { Registry } from './registry'
 export { getJobPhase, getMediaType, getPreviewUrl, getRawUrl, hasResult, isCompleted, isFailed, isFailedJobStatus, isFromJob, isGenerating, isTerminalJobStatus } from './selectors'
+
 export type { JobPhase } from './selectors'
 export { buildWireParams, parseGeneration, parseSettings } from './spec'
 export type { JobResponse } from './spec'
-
 export type { Transport, TransportRequest, TransportResponse } from './transport'
 export { isTerminal, TERMINAL_STATUSES } from './types'
+
 export type { Generation, GenerationInput, GenerationResults, GenerationStatus, MediaInput, MediaMeta, MediaRef, OutputType, PromptInput } from './types'
+// The ONE bundled adapter implementation — the Workflow Platform adapter for
+// https://fnf.internal (+ its fetch transport), so generated-app hosts that
+// vendor only this package are self-sufficient. Also at
+// "@higgsfield/fnf/workflow-platform".
+export { createFetchTransport, createWorkflowPlatformAdapter } from './workflow-platform'
+export type { FetchTransportOptions, WorkflowPlatformAdapterOptions } from './workflow-platform'
 
 export { aspectRatio, duration, getNormalize, getWireName, wire, z } from './z'
 export type { Normalize } from './z'

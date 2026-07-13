@@ -47,6 +47,9 @@ function recToDraft(rec: Recommendation, day: number): ItemDraft {
     bookingRef: "",
     phone: "",
     lodgingGroup: rec.category === "hotel" ? `lodge-day${day}` : "",
+    openingHours: rec.openingHours ?? "",
+    cost: rec.cost ?? "",
+    info: rec.info ?? "",
   };
 }
 

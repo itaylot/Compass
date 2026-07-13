@@ -1,10 +1,7 @@
+import type { GenerationBackend, MediaBackend, ProfileBackend } from '../../backend'
 import type { BinaryUploader } from '../../media'
 import type { FnfObservationEvent } from '../index'
 import { describe, expect, it, vi } from 'vitest'
-import { createDevFnfWebAdapter } from '../../adapters/dev-fnf-web-adapter'
-import { createFetchTransport } from '../../adapters/fetch-transport'
-import { createMemoryBackend } from '../../adapters/memory-backend'
-import { createMemoryProfileAdapter } from '../../adapters/memory-profile-adapter'
 import { createJobClient } from '../../client'
 import { defineJob } from '../../define-job'
 import { ApiJobError } from '../../errors'
@@ -18,6 +15,17 @@ const demo = defineJob({
   outputType: 'image',
   params: { prompt: true, settings: { aspectRatio: z.aspectRatio(['1:1']) } },
 })
+
+// Inline port stubs — this suite tests the observability layer, which must not
+// depend on concrete adapters (those live in @higgsfield/fnf-adapters).
+function stubBackend(cost = 1): GenerationBackend {
+  return {
+    createJobs: async ({ jobSetType }) => [{ id: 'job-1', job_set_type: jobSetType, status: 'completed', result_url: 'memory://out' }],
+    getJob: async id => ({ id, status: 'completed' }),
+    listJobs: async () => ({ items: [] }),
+    estimateCost: async () => ({ credits: cost }),
+  }
+}
 
 function recorder() {
   const events: FnfObservationEvent[] = []
@@ -33,7 +41,7 @@ describe('fnf observability', () => {
   it('emits job lifecycle spans without changing client behavior', async () => {
     const rec = recorder()
     const client = createJobClient({
-      adapter: createMemoryBackend({ cost: 7 }),
+      adapter: stubBackend(7),
       jobs: [demo],
       observability: { observer: rec.observer, traceId: 'trace-1' },
     })
@@ -51,7 +59,7 @@ describe('fnf observability', () => {
   it('emits typed error metadata for SDK failures', async () => {
     const rec = recorder()
     const client = createJobClient({
-      adapter: createMemoryBackend(),
+      adapter: stubBackend(),
       jobs: [demo],
       observability: { observer: rec.observer },
     })
@@ -64,12 +72,10 @@ describe('fnf observability', () => {
 
   it('observes transport requests with sanitized paths and safe status metadata', async () => {
     const rec = recorder()
-    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ ok: true }), { status: 201 }))
-    const transport = createFetchTransport({
-      baseUrl: 'https://fnf.test/',
-      fetch: fetchMock as unknown as typeof globalThis.fetch,
-      observability: { observer: rec.observer },
-    })
+    const transport = withObservedTransport(
+      async () => ({ status: 201, body: { ok: true } }),
+      { observer: rec.observer },
+    )
 
     await transport({ method: 'POST', path: '/jobs/topaz-image?dry_run=true&token=secret', body: { prompt: 'secret' } })
 
@@ -80,12 +86,14 @@ describe('fnf observability', () => {
 
   it('media upload spans do not expose upload URLs, filenames, bytes, or result URLs', async () => {
     const rec = recorder()
+    const mediaBackend: MediaBackend = {
+      getMedia: async () => ({}),
+      listMedia: async () => ({ items: [] }),
+      getUploadUrl: async () => ({ id: 'm1', url: 'https://cdn/private.png', upload_url: 'https://s3/private-put' }),
+      confirmMedia: async () => ({ id: 'm1', status: 'uploaded', url: 'https://cdn/private.png' }),
+    }
     const media = createMediaClient({
-      mediaAdapter: createDevFnfWebAdapter({
-        transport: async req => req.path === '/media/batch'
-          ? { status: 200, body: [{ id: 'm1', url: 'https://cdn/private.png', upload_url: 'https://s3/private-put' }] }
-          : { status: 200, body: { id: 'm1', status: 'uploaded', url: 'https://cdn/private.png' } },
-      }),
+      mediaAdapter: mediaBackend,
       blobUploader: { transfer: async () => {} },
       observability: { observer: rec.observer },
     })
@@ -102,12 +110,16 @@ describe('fnf observability', () => {
 
   it('profile spans expose only coarse metadata and ids', async () => {
     const rec = recorder()
+    const workspaces = [{ id: 'w1', name: 'Secret Team', type: 'private', user_role: 'owner' }]
+    const profileBackend: ProfileBackend = {
+      getUser: async () => ({ id: 'u1', email: 'private@example.com', workspace_id: 'w1' }),
+      listWorkspaces: async () => workspaces,
+      getCurrentWorkspace: async () => workspaces[0],
+      getWorkspaceWallet: async () => ({ subscription_balance: 0 }),
+      switchWorkspace: async () => ({}),
+    }
     const profile = createProfileClient({
-      profileAdapter: createMemoryProfileAdapter({
-        user: { id: 'u1', email: 'private@example.com', workspace_id: 'w1' },
-        workspaces: [{ id: 'w1', name: 'Secret Team', type: 'private', user_role: 'owner' }],
-        currentWorkspaceId: 'w1',
-      }),
+      profileAdapter: profileBackend,
       observability: { observer: rec.observer },
     })
 
@@ -124,7 +136,7 @@ describe('fnf observability', () => {
       throw new Error('observer exploded')
     })
     const onObserverError = vi.fn()
-    const backend = withObservedGenerationBackend(createMemoryBackend(), { observer, onObserverError })
+    const backend = withObservedGenerationBackend(stubBackend(), { observer, onObserverError })
     const client = createJobClient({ adapter: backend, jobs: [demo] })
 
     await expect(client.submit({ model: 'demo', prompt: { instruction: 'x' }, settings: { aspectRatio: '1:1' } })).resolves.toHaveProperty('generations')

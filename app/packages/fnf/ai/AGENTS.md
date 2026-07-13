@@ -13,8 +13,13 @@ tests are the executable spec.
 
 
 1. **Use public subpath imports only**: `@higgsfield/fnf/client`, `/jobs`,
-   `/media`, `/profile`, `/observability`, `/adapters`, `/errors`. Never
-   deep-import `src/` paths.
+   `/media`, `/profile`, `/observability`, `/workflow-platform`, `/errors`.
+   Never deep-import `src/` paths. `@higgsfield/fnf` ships the backend
+   ports/interfaces plus exactly ONE bundled adapter — the Workflow Platform
+   adapter at `@higgsfield/fnf/workflow-platform` (so fnf-only hosts are
+   self-sufficient for generated apps). Every other concrete adapter (fnf-web,
+   dev, apps-marketplace, memory) lives in the separate
+   `@higgsfield/fnf-adapters` package.
 2. **Never hand-build backend wire params or routes.** `createJobClient`,
    `createMediaClient`, and `createProfileClient` own validation, codecs,
    snake_case mapping, derived fields, route quirks, polling, and typed errors.
@@ -33,19 +38,29 @@ tests are the executable spec.
 6. **Upload media before submit.** `media.upload(...)` returns a `MediaRef`;
    pass it to `client.submit({ media: { role: ref } })`. Seedance media uploads
    that need IP checks must set `forceIpCheck: true`.
-7. **Attach or resolve `MediaRef.meta` when local validation depends on size or
+7. **Job submission requires a host confirmation gate.** Every generation
+   adapter factory accepts a `confirm` option (`ConfirmSubmit`); if the host
+   submits generations on behalf of a user, you must implement it — a modal in
+   UI hosts (minimal fallback: a `window.confirm` wrapper). `submit` calls it
+   once per submission after validation, before any network call. Resolve to
+   proceed — a resolved string token rides the submit body as
+   `confirmation_token` — reject/throw to abort with the typed
+   `confirmation_rejected` error. Only tests and non-interactive service flows
+   may omit it. See "Submission confirmation gate" below.
+8. **Attach or resolve `MediaRef.meta` when local validation depends on size or
    duration.** Unknown meta is skipped locally and remains backend-authoritative.
    `aspectRatio: 'auto'` uses first-image meta where model logic supports it.
-8. **Display credits are divided by 100.** Wallet fields from `getWallet()` are
+9. **Display credits are divided by 100.** Wallet fields from `getWallet()` are
    backend credit-cents. `profile.getCredits()`, `profile.getSnapshot().credits`,
    and `client.cost(input).credits` are display credits.
-9. **Use safe APIs across iframe/worker boundaries.** Prefer `safeSubmit` and
-   `safeUploadMedia`; branch on `error.code`. `instanceof` is not reliable after
-   JSON/postMessage/Comlink serialization.
-10. **Observability is metadata-only.** Observers may receive model ids, status,
+10. **Use safe APIs across iframe/worker boundaries.** Prefer `safeSubmit` and
+    `safeUploadMedia`; branch on `error.code`. `instanceof` is not reliable after
+    JSON/postMessage/Comlink serialization.
+11. **Observability is metadata-only.** Observers may receive model ids, status,
     durations, counts, and safe backend ids. Never emit prompts, auth headers,
     tokens, request/response bodies, upload URLs, result URLs, filenames, emails,
-    workspace names, or file bytes.
+    workspace names, or file bytes. The submit confirmation token is a token —
+    it never goes into observer attributes.
 
 ## Public entry points
 
@@ -55,7 +70,8 @@ import { nanoBanana2, seedance2_0 } from '@higgsfield/fnf/jobs'
 import { createMediaClient } from '@higgsfield/fnf/media'
 import { createProfileClient } from '@higgsfield/fnf/profile'
 import { createConsoleObserver } from '@higgsfield/fnf/observability'
-import { createAppsMarketplaceAdapter, createDevFnfWebAdapter, createFnfWebAdapter, createWorkflowPlatformAdapter } from '@higgsfield/fnf/adapters'
+import { createWorkflowPlatformAdapter } from '@higgsfield/fnf/workflow-platform'
+import { createAppsMarketplaceAdapter, createDevFnfWebAdapter, createFnfWebAdapter } from '@higgsfield/fnf-adapters'
 import { errorFromJSON } from '@higgsfield/fnf/errors'
 ```
 
@@ -80,14 +96,18 @@ consumers.
 | `createFnfWebAdapter({ baseUrl, getToken, workspaceId? })` | Clerk Bearer token plus optional `hf-workspace-id` | product/in-app flows |
 | `createDevFnfWebAdapter({ userId, workspaceId? })` | `hf-dev-user-id` plus optional `hf-workspace-id`; base URL defaults to dev | dev backend smoke tests and local sandboxes only |
 | `createAppsMarketplaceAdapter({ userId, workspaceId? })` | `fnf-apps-marketplace-secret` from `secret` or `FNF_APPS_MARKETPLACE_SECRET` + `hf-user-id`; base URL defaults to `https://dev-fnf.higgsfield.ai/apps-marketplace` | trusted server-side apps-marketplace proxy/sdk smoke tests; dev-only backend mount for now |
-| `createWorkflowPlatformAdapter({ baseUrl, observability? })` | platform-attached server identity; no bearer token | generated apps and Supercomputer flows through `https://fnf.internal` |
+| `createWorkflowPlatformAdapter({ baseUrl, observability? })` — BUNDLED in `@higgsfield/fnf/workflow-platform` | platform-attached server identity; no bearer token | generated apps and Supercomputer flows through `https://fnf.internal` |
 | `createMemoryBackend()` / `createMemoryMediaAdapter()` / `createMemoryProfileAdapter()` | none | tests, examples, offline demos |
+
+Every generation adapter factory above also accepts a `confirm` option — the
+host's submission confirmation gate (see "Submission confirmation gate" under
+Job recipes). Hosts that submit generations for a user must pass it.
 
 ```ts
 import { createJobClient } from '@higgsfield/fnf/client'
 import { createMediaClient } from '@higgsfield/fnf/media'
 import { createProfileClient } from '@higgsfield/fnf/profile'
-import { createWorkflowPlatformAdapter } from '@higgsfield/fnf/adapters'
+import { createWorkflowPlatformAdapter } from '@higgsfield/fnf/workflow-platform'
 import { seedance2_0 } from '@higgsfield/fnf/jobs'
 
 const adapter = createWorkflowPlatformAdapter({
@@ -110,7 +130,7 @@ the service secret must never be shipped to browser code. This adapter is for
 SDK smoke tests and trusted service experiments, not generated apps:
 
 ```ts
-import { createAppsMarketplaceAdapter } from '@higgsfield/fnf/adapters'
+import { createAppsMarketplaceAdapter } from '@higgsfield/fnf-adapters'
 
 const adapter = createAppsMarketplaceAdapter({
   userId: actingUserId,
@@ -135,7 +155,7 @@ validation, camelCase settings, `z.wire` serialization, media refs, profile
 mapping, costs, polling, and typed errors.
 
 ```ts
-import { createWorkflowPlatformAdapter } from '@higgsfield/fnf/adapters'
+import { createWorkflowPlatformAdapter } from '@higgsfield/fnf/workflow-platform'
 
 const adapter = createWorkflowPlatformAdapter({
   baseUrl: 'https://fnf.internal',
@@ -218,12 +238,87 @@ Useful client calls:
 - `list(opts)` reads the generation feed; handle typed `not_supported` for
   filters the backend route cannot support.
 
+### Generation shape and preview URLs
+
+A `Generation` (from `@higgsfield/fnf/client`) is what `submit`/`wait`/`get`/
+`list` return. The fields a UI actually reads:
+
+```ts
+interface Generation {
+  id: string
+  model: string            // == jobSetType, e.g. 'gpt_image_2'
+  type: OutputType         // 'image' | 'video'
+  status: GenerationStatus
+  input: GenerationInput   // input.prompt?.instruction is the prompt text
+  results?: GenerationResults  // present ONLY once completed with an output
+  failReason?: string
+  createdAt?: number       // epoch; may be seconds OR ms
+}
+
+// results is a single object, NOT an array:
+interface GenerationResults {
+  rawUrl: string           // full-quality image or video
+  minUrl?: string          // downscaled still (images)
+  thumbnailUrl?: string    // poster / thumb
+}
+```
+
+- `GenerationStatus`: `'pending' | 'waiting' | 'queued' | 'in_progress' |
+  'ip_detect' | 'completed' | 'failed' | 'nsfw' | 'canceled' | 'ip_detected'`.
+  Terminal = `completed | failed | nsfw | canceled | ip_detected` (`isTerminal(status)`).
+- **Picking the display URL — do NOT hand-roll it.** Use the exported selectors:
+  `getPreviewUrl(generation)` (precedence `minUrl → thumbnailUrl → rawUrl`) for
+  grids/cards, `getRawUrl(generation)` for full-quality, and
+  `getJobPhase(generation)` → `'progress' | 'completed' | 'failed'` for state UI.
+- `results` is `undefined` until `status === 'completed'` with a `result_url`.
+  A completed generation with no `rawUrl` must render an explicit
+  "preview unavailable" state with refresh — never a blank card.
+- In the generated app, `app/src/lib/higgsfield-generation-results.ts` wraps this:
+  `selectGenerationMedia(generation)` returns a discriminated union
+  (`{ kind: 'image' | 'video' | 'empty', … }`) with `previewUrl`/`rawUrl`/
+  `posterUrl` already resolved — compose result cards from it, not from raw fields.
+
 When regenerating, submit the parsed read-model input back through the same
 client and registry:
 
 ```ts
 await client.submit(done.input as Parameters<typeof client.submit>[0])
 ```
+
+### Submission confirmation gate
+
+If the host submits generations on behalf of a user, implement the `confirm`
+gate — pass it to the adapter factory (all generation adapters accept it). In
+UI hosts this must be a confirmation modal; the minimal implementation wraps
+`window.confirm`. `submit` calls the gate once per submission (not per
+`count` fan-out job), after validation and wire-param building, before any
+network call.
+
+Contract (`ConfirmSubmit` from `@higgsfield/fnf`):
+
+- Resolve to proceed. Resolving with a string sends it as top-level
+  `confirmation_token` on the create request (e.g. a token minted by the
+  host's own confirm endpoint or modal flow).
+- Resolve with nothing (`window.confirm` style) to proceed without a token.
+- Reject/throw to abort: `submit` fails with the typed
+  `confirmation_rejected` error and no request is sent. Branch on
+  `error.code === 'confirmation_rejected'` — user declined is not a failure.
+
+```ts
+const adapter = createFnfWebAdapter({
+  baseUrl,
+  getToken,
+  // Minimal gate. A real UI host opens its modal here and resolves the
+  // promise with the modal's confirmation token.
+  confirm: async ({ jobSetType }) => {
+    if (!window.confirm(`Submit ${jobSetType}?`))
+      throw new Error('declined')
+  },
+})
+```
+
+Do not auto-confirm (`confirm: async () => {}` in a real UI host defeats the
+gate), and never log or emit the token through observability.
 
 ## Media recipes
 
@@ -385,7 +480,6 @@ Image:
 - `soulV2Image` -> `text2image_soul_v2`
 - `soulCinemaImage` -> `soul_cinematic`
 - `gptImage2` -> `gpt_image_2`
-- `imagegen2_0` -> compatibility entry for GPT Image 2
 - `seedreamV4_5`
 - `nanoBanana2` -> `nano_banana_2`
 - `nanoBananaFlash` -> `nano_banana_flash`
@@ -426,7 +520,9 @@ when needed.
 Common codes: `validation`, `out_of_credits`, `rate_limit`,
 `minimum_plan_required`, `prompt_nsfw`, `ip_detected`,
 `ip_check_rate_limit_reached`, `job_failed`, `timeout`, `aborted`,
-`not_supported`, `media_too_large`, `request_timeout`.
+`not_supported`, `media_too_large`, `request_timeout`,
+`confirmation_rejected` (the host's `confirm` gate declined the submission —
+a user choice, not a failure).
 
 For UI and worker/iframe boundaries, branch on `error.code`:
 
@@ -517,8 +613,9 @@ Non-negotiables:
 3. If `finalize` deletes, renames, or derives settings, add `restore` so
    get-then-resubmit round-trips parsed generations correctly.
 4. Export new jobs from `src/jobs/index.ts` and the root barrel.
-5. Update `createFnfWebAdapter` route/body/cost behavior when the product route
-   is not the generic `/jobs/{jobSetType}` shape.
+5. Update `createFnfWebAdapter` route/body/cost behavior (in
+   `@higgsfield/fnf-adapters`) when the product route is not the generic
+   `/jobs/{jobSetType}` shape.
 6. Add tests for defaults, validations, media role/count/meta rules, cost,
    adapter route/body shape, parse/build round-trips, and typed API coverage.
 7. For docs/type tests, use `expectType<T>(value)` instead of bare property
@@ -529,7 +626,13 @@ Focused package checks:
 ```sh
 yarn workspace @higgsfield/fnf test
 yarn workspace @higgsfield/fnf typecheck
+yarn workspace @higgsfield/fnf-adapters test
+yarn workspace @higgsfield/fnf-adapters typecheck
 ```
+
+The client/media/profile wire-parity tests (exact adapter routes and bodies)
+live in `packages/fnf-adapters/src/__tests__`; `@higgsfield/fnf` keeps the
+port-level unit tests only.
 
 Do not run the full app build, `next build`, or `ci:build` in this workspace.
 

@@ -229,6 +229,11 @@ export class JobAbortedError extends ApiJobError {
   constructor(message = 'Operation aborted') { super('aborted', message) }
 }
 
+/** The host's `confirm` gate rejected — the user declined the submission. */
+export class ConfirmationRejectedError extends ApiJobError {
+  constructor(message = 'Submission was not confirmed') { super('confirmation_rejected', message) }
+}
+
 /** Throw the typed `JobAbortedError` when the signal is already aborted. */
 export function throwIfAborted(signal?: AbortSignal): void {
   if (signal?.aborted)
@@ -457,6 +462,7 @@ const CODE_TO_CLASS: Record<string, (j: ApiJobErrorJSON<any>) => ApiJobError> = 
   // has to keep working across a Comlink boundary, body and URL intact.
   unknown: j => new UnknownSubmitResponseError(j.status, j.data?.responseBody, j.data?.responseUrl),
   aborted: j => new JobAbortedError(j.message),
+  confirmation_rejected: j => new ConfirmationRejectedError(j.message),
   timeout: (j) => {
     // Preserve the serialized message — the constructor would otherwise rebuild
     // it as "within 0ms" (the original timeoutMs isn't carried in the payload).

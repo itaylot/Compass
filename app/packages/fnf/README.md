@@ -26,7 +26,9 @@ Built-in adapters:
   the `hf-dev-user-id` header, acting on behalf of that user (honored by the
   backend only on non-prod); the base URL defaults to `DEV_FNF_BASE_URL`.
 - `createWorkflowPlatformAdapter({ baseUrl: 'https://fnf.internal' })`
-  — generated-app/Supercomputer path: sends logical operations through only
+  — the ONE adapter bundled in this package (`@higgsfield/fnf/workflow-platform`),
+  so generated-app hosts that vendor only `@higgsfield/fnf` are self-sufficient.
+  Generated-app/Supercomputer path: sends logical operations through only
   `/user`, `/workspaces`, and `/jobs`; the platform behind fnf.internal owns
   final internal routing. Generated apps should not pass tokens or alternate
   backend URLs.
@@ -40,7 +42,7 @@ or implement the backend ports with a custom adapter/transport.
 import { createJobClient } from '@higgsfield/fnf/client'
 import { createProfileClient } from '@higgsfield/fnf/profile'
 import { nanoBanana2, seedance2_0 } from '@higgsfield/fnf/jobs'
-import { createWorkflowPlatformAdapter } from '@higgsfield/fnf/adapters'
+import { createWorkflowPlatformAdapter } from '@higgsfield/fnf/workflow-platform'
 
 const adapter = createWorkflowPlatformAdapter({
   baseUrl: 'https://fnf.internal',
@@ -77,10 +79,13 @@ await client.submit(done.input as Parameters<typeof client.submit>[0])
 
 ### Offline / tests
 
-`createMemoryBackend()` is an in-process backend (no network) that completes jobs
-immediately — use it for tests, demos, and offline development.
+`createMemoryBackend()` (from `@higgsfield/fnf-adapters`) is an in-process
+backend (no network) that completes jobs immediately — use it for tests, demos,
+and offline development.
 
 ```ts
+import { createMemoryBackend } from '@higgsfield/fnf-adapters'
+
 const client = createJobClient({ adapter: createMemoryBackend(), jobs: [nanoBanana2] })
 ```
 
@@ -95,7 +100,7 @@ import { createJobClient } from '@higgsfield/fnf/client'  // submit/adjust/get/p
 import { nanoBanana2 } from '@higgsfield/fnf/jobs'          // the model catalog + defineJob toolkit
 import { createMediaClient } from '@higgsfield/fnf/media' // get/list/resolve/upload
 import { createProfileClient } from '@higgsfield/fnf/profile' // user/workspaces/wallet/credits/switch
-import { createWorkflowPlatformAdapter } from '@higgsfield/fnf/adapters'
+import { createWorkflowPlatformAdapter } from '@higgsfield/fnf/workflow-platform'
 
 const adapter = createWorkflowPlatformAdapter({
   baseUrl: 'https://fnf.internal',
@@ -120,6 +125,13 @@ The seam between them: media ops produce a `MediaRef`, which drops into
   structured `failed: ApiJobErrorJSON[]` and a display `warning`. `safeSubmit`
   returns a serializable `{ ok, ... } | { ok: false, error }` for Comlink/iframe
   boundaries instead of throwing.
+- Confirmation gate: hosts that submit on behalf of a user must pass `confirm`
+  (a `ConfirmSubmit`) to the adapter factory — a confirmation modal, minimally a
+  `window.confirm` wrapper. `submit` runs it once per submission after
+  validation, before any network call; a resolved string token is sent as
+  top-level `confirmation_token` on the create request; a rejection aborts with
+  the typed `confirmation_rejected` error (user declined — branch on
+  `error.code`, don't treat as failure).
 - `adjust(input, kinds)` — opt-in normalization: snaps the requested kinds
   (`'near-aspect-ratio'`, `'near-duration'`) to the nearest allowed values and
   returns `{ input, adjustments }`. `submit` itself never normalizes — it sends
@@ -203,11 +215,15 @@ Every operation is also a free function over a shared context (`createContext` f
 
 ## Adapters (the transport boundary)
 
-Three ports: `GenerationBackend` (`createJobs`/`getJob`/`listJobs`/`estimateCost`),
+Three ports: `GenerationBackend` (`createJobs`/`getJob`/`listJobs`/`estimateCost`,
+plus the optional host-injected `confirm` submission gate),
 `MediaBackend` (`getMedia`/`listMedia`, plus optional `getUploadUrl`/
 `confirmMedia`), and `ProfileBackend` (`getUser`/`listWorkspaces`/
-`getCurrentWorkspace`/`getWorkspaceWallet`/`switchWorkspace`). Pick or write a
-concrete adapter:
+`getCurrentWorkspace`/`getWorkspaceWallet`/`switchWorkspace`). Every generation
+adapter factory below accepts a `confirm` option and surfaces it on the port;
+hosts submitting for a user must provide it (modal, or minimally a
+`window.confirm` wrapper — see the confirmation-gate bullet under Surface).
+Pick or write a concrete adapter:
 
 - `createFnfWebAdapter` — the product fnf surface (`POST /jobs/{type}` /
   `POST /jobs/v2/{type}`, `GET /jobs/{id}`, `POST /media/batch` presign,
@@ -228,8 +244,8 @@ concrete adapter:
 - Custom adapters/transports — for other approved web apps or endpoint surfaces,
   implement the `GenerationBackend`, `MediaBackend`, and `ProfileBackend` ports
   instead of hardcoding route logic in UI code.
-- `createMemoryBackend` / `createMemoryMediaAdapter` — in-process test/offline stubs
-  (exported from the root barrel only).
+- `createMemoryBackend` / `createMemoryMediaAdapter` / `createMemoryProfileAdapter`
+  — in-process test/offline stubs.
 - Adobe UXP needs a Comlink-based adapter (UXP webviews forbid direct `fetch`); none
   ships yet — implement the ports over the host bridge.
 
@@ -315,7 +331,7 @@ Public settings are camelCase and mapped to backend wire names with `z.wire`.
 Image models:
 - `soulV2Image` (`text2image_soul_v2`) and `soulCinemaImage`
   (`soul_cinematic`)
-- `gptImage2` (`gpt_image_2`) and compatibility `imagegen2_0`
+- `gptImage2` (`gpt_image_2`)
 - `seedreamV4_5`
 - `nanoBanana2` (`nano_banana_2`) and `nanoBananaFlash`
   (`nano_banana_flash`)

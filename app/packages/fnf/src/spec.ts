@@ -11,6 +11,7 @@ export interface JobResponse {
   status: string
   result_url?: string | null
   min_result_url?: string | null
+  thumbnail_url?: string | null
   params?: Record<string, unknown>
   created_at?: number
   fail_reason?: string | null
@@ -146,7 +147,9 @@ function buildResults(entry: JobEntry, job: JobResponse): GenerationResults | un
   const results: GenerationResults = { rawUrl: job.result_url }
   if (entry.outputType === 'image' && job.min_result_url)
     results.minUrl = job.min_result_url
-  if (entry.outputType === 'video' && job.min_result_url)
-    results.thumbnailUrl = job.min_result_url
+  if (entry.outputType === 'image' && !job.min_result_url && job.thumbnail_url)
+    results.thumbnailUrl = job.thumbnail_url
+  if (entry.outputType === 'video' && (job.thumbnail_url || job.min_result_url))
+    results.thumbnailUrl = job.thumbnail_url ?? job.min_result_url ?? undefined
   return results
 }
